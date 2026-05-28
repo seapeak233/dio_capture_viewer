@@ -152,6 +152,7 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
               ),
               OutlinedButton(
                 onPressed: () {
+                  captureController.store.showMini();
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => ExampleCaptureSettingsPage(

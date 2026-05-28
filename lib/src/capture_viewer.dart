@@ -744,6 +744,7 @@ class _Header extends StatelessWidget {
           if (onSettingsTap != null)
             _HeaderIconButton(
               onTap: () {
+                store.showMini();
                 final fallbackContext = actionContext ?? context;
                 final targetContext =
                     controller?.actionContext(fallbackContext) ??

@@ -96,3 +96,8 @@ callback, the floating viewer modes, the capture store, and the Dio interceptor.
 
 This package is meant for development, QA, and internal debug builds. Avoid
 showing captured production traffic to end users.
+
+## TODO
+
+- Support capturing Server-Sent Events (SSE) streams.
+- Support capturing WebSocket connection metadata and message frames.
