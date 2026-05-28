@@ -16,6 +16,14 @@ errors, status codes, and request durations.
 - Filterable request list and copy actions for payloads.
 - Settings entry callback and optional persistence bridge.
 
+## Preview
+
+<p>
+  <img src="assets/screenshots/home-docked-viewer.jpg" width="260" alt="Home page with docked capture viewer">
+  <img src="assets/screenshots/settings-mini-viewer.jpg" width="260" alt="Settings page with mini capture viewer">
+  <img src="assets/screenshots/settings-docked-viewer.gif" width="260" alt="Capture viewer docking animation on settings page">
+</p>
+
 ## Usage
 
 Create one `DioCaptureViewerController`, attach its interceptor to Dio, then

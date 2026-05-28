@@ -14,6 +14,14 @@
 - 支持请求列表过滤和载荷复制操作。
 - 提供设置入口回调和可选持久化桥接。
 
+## 预览
+
+<p>
+  <img src="assets/screenshots/home-docked-viewer.jpg" width="260" alt="首页贴边抓包查看器">
+  <img src="assets/screenshots/settings-mini-viewer.jpg" width="260" alt="设置页迷你抓包查看器">
+  <img src="assets/screenshots/settings-docked-viewer.gif" width="260" alt="设置页抓包查看器贴边动画">
+</p>
+
 ## 使用方式
 
 创建一个 `DioCaptureViewerController`，把它创建的 interceptor 添加到 Dio，然后把 overlay 放在应用内容上方。
