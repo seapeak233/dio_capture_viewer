@@ -1,0 +1,25 @@
+name: dio_capture_viewer
+description: A lightweight in-app Dio request capture viewer with a floating Flutter UI for debug and QA builds.
+version: 0.0.1
+topics:
+  - dio
+  - network
+  - debugging
+  - inspector
+  - flutter
+
+environment:
+  sdk: ^3.11.5
+  flutter: ">=3.29.0"
+
+dependencies:
+  dio: ">=5.0.0 <6.0.0"
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
