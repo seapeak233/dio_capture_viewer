@@ -68,6 +68,96 @@ void main() {
     expect(store.entries.last.id, '5');
   });
 
+  test('store records websocket stream session messages and close', () {
+    final store = CaptureStore(enabled: true);
+    final session = store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/socket',
+      headers: {'x-debug': '1'},
+    );
+
+    session.addOutbound({'type': 'ping'}, label: 'send');
+    session.addInbound({'type': 'pong'}, label: 'receive');
+    session.close(code: 1000, reason: 'normal');
+
+    expect(store.entries, hasLength(1));
+    final entry = store.entries.single;
+    expect(entry.id, session.id);
+    expect(entry.method, 'WS');
+    expect(entry.protocol, CaptureProtocol.webSocket);
+    expect(entry.state, CaptureState.closed);
+    expect(entry.headers, {'x-debug': '1'});
+    expect(entry.closedAt, isNotNull);
+    expect(entry.messages, hasLength(3));
+    expect(entry.messages[0].direction, CaptureMessageDirection.outbound);
+    expect(entry.messages[0].type, CaptureMessageType.message);
+    expect(entry.messages[1].direction, CaptureMessageDirection.inbound);
+    expect(entry.messages[2].type, CaptureMessageType.close);
+    expect(entry.messages[2].data, {'code': 1000, 'reason': 'normal'});
+  });
+
+  test('store records sse events and failures', () {
+    final store = CaptureStore(enabled: true);
+    final session = store.startStreamCapture(
+      protocol: CaptureProtocol.sse,
+      url: 'https://example.com/events',
+    );
+
+    session.addEvent('connected', label: 'open');
+    session.fail(StateError('stream failed'));
+
+    final entry = store.entries.single;
+    expect(entry.method, 'SSE');
+    expect(entry.protocol, CaptureProtocol.sse);
+    expect(entry.state, CaptureState.error);
+    expect(entry.errorMessage, contains('stream failed'));
+    expect(entry.closedAt, isNotNull);
+    expect(entry.messages, hasLength(2));
+    expect(entry.messages.first.type, CaptureMessageType.event);
+    expect(entry.messages.last.type, CaptureMessageType.error);
+  });
+
+  test('stream session is no-op when capture is disabled', () {
+    final store = CaptureStore(enabled: false);
+    final session = store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/socket',
+    );
+
+    session.addInbound('message');
+    session.close();
+
+    expect(store.entries, isEmpty);
+  });
+
+  test('deleted stream entry is not recreated by later session updates', () {
+    final store = CaptureStore(enabled: true);
+    final session = store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/socket',
+    );
+
+    store.deleteEntry(session.id);
+    session.addInbound('late message');
+    session.close();
+
+    expect(store.entries, isEmpty);
+  });
+
+  test('cleared stream entries are not recreated by later session updates', () {
+    final store = CaptureStore(enabled: true);
+    final session = store.startStreamCapture(
+      protocol: CaptureProtocol.sse,
+      url: 'https://example.com/events',
+    );
+
+    store.clearEntries();
+    session.addEvent('late event');
+    session.fail('late error');
+
+    expect(store.entries, isEmpty);
+  });
+
   test('interceptor records request and response', () async {
     final store = CaptureStore(enabled: true);
     final dio = Dio()

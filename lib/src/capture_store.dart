@@ -11,6 +11,52 @@ enum CapturePanelMode { mini, full, docked }
 
 enum CaptureDockSide { left, right }
 
+/// Lightweight handle for app-managed SSE and WebSocket capture sessions.
+class CaptureStreamSession {
+  const CaptureStreamSession._(this._store, this.id);
+
+  final CaptureStore _store;
+  final String id;
+
+  void addInbound(Object? data, {String? label}) {
+    _store._addStreamMessage(
+      id,
+      direction: CaptureMessageDirection.inbound,
+      type: CaptureMessageType.message,
+      data: data,
+      label: label,
+    );
+  }
+
+  void addOutbound(Object? data, {String? label}) {
+    _store._addStreamMessage(
+      id,
+      direction: CaptureMessageDirection.outbound,
+      type: CaptureMessageType.message,
+      data: data,
+      label: label,
+    );
+  }
+
+  void addEvent(Object? data, {String? label}) {
+    _store._addStreamMessage(
+      id,
+      direction: CaptureMessageDirection.inbound,
+      type: CaptureMessageType.event,
+      data: data,
+      label: label,
+    );
+  }
+
+  void close({int? code, String? reason}) {
+    _store._closeStream(id, code: code, reason: reason);
+  }
+
+  void fail(Object error) {
+    _store._failStream(id, error);
+  }
+}
+
 /// Optional storage bridge for apps that want capture settings to survive
 /// process restarts.
 abstract interface class CapturePreferences {
@@ -35,6 +81,7 @@ class CaptureStore extends ChangeNotifier {
 
   final CapturePreferences? _preferences;
   final List<CaptureEntry> _entries = <CaptureEntry>[];
+  final Set<String> _deletedEntryIds = <String>{};
 
   bool _isEnabled;
   bool _isPanelVisible = false;
@@ -172,6 +219,7 @@ class CaptureStore extends ChangeNotifier {
     if (!isCaptureEnabled) {
       return;
     }
+    _deletedEntryIds.remove(entry.id);
     _entries.insert(0, entry);
     _cleanupEntries();
     notifyListeners();
@@ -207,9 +255,53 @@ class CaptureStore extends ChangeNotifier {
   }
 
   void clearEntries() {
+    _deletedEntryIds.addAll(_entries.map((entry) => entry.id));
     _entries.clear();
     _selectedEntry = null;
     notifyListeners();
+  }
+
+  void deleteEntry(String id) {
+    _deletedEntryIds.add(id);
+    final index = _entries.indexWhere((entry) => entry.id == id);
+    if (index == -1) {
+      return;
+    }
+    final removed = _entries.removeAt(index);
+    if (_selectedEntry?.id == removed.id) {
+      _selectedEntry = null;
+    }
+    notifyListeners();
+  }
+
+  CaptureStreamSession startStreamCapture({
+    required CaptureProtocol protocol,
+    required String url,
+    Map<String, dynamic>? headers,
+    Object? requestData,
+    Map<String, dynamic>? queryParameters,
+    DateTime? timestamp,
+  }) {
+    final id = _nextStreamId();
+    if (!isCaptureEnabled) {
+      return CaptureStreamSession._(this, id);
+    }
+
+    final entry = CaptureEntry(
+      id: id,
+      method: _streamMethod(protocol),
+      url: url,
+      protocol: protocol,
+      state: CaptureState.open,
+      headers: headers == null ? null : Map<String, dynamic>.from(headers),
+      requestData: requestData,
+      queryParameters: queryParameters == null
+          ? null
+          : Map<String, dynamic>.from(queryParameters),
+      timestamp: timestamp ?? DateTime.now(),
+    );
+    addEntry(entry);
+    return CaptureStreamSession._(this, id);
   }
 
   void selectEntry(CaptureEntry entry) {
@@ -250,6 +342,117 @@ class CaptureStore extends ChangeNotifier {
       return;
     }
     _entries.removeRange(_maxCacheSize, _entries.length);
+  }
+
+  void _addStreamMessage(
+    String id, {
+    required CaptureMessageDirection direction,
+    required CaptureMessageType type,
+    required Object? data,
+    String? label,
+  }) {
+    if (!isCaptureEnabled || _deletedEntryIds.contains(id)) {
+      return;
+    }
+
+    final index = _entries.indexWhere((entry) => entry.id == id);
+    if (index == -1) {
+      return;
+    }
+
+    final entry = _entries[index];
+    final updated = entry.copyWith(
+      messages: [
+        ...entry.messages,
+        CaptureMessage(
+          direction: direction,
+          type: type,
+          data: data,
+          timestamp: DateTime.now(),
+          label: label,
+        ),
+      ],
+    );
+    _replaceEntry(index, updated);
+  }
+
+  void _closeStream(String id, {int? code, String? reason}) {
+    final data = <String, Object?>{
+      if (code != null) 'code': code,
+      if (reason != null) 'reason': reason,
+    };
+    _finishStream(
+      id,
+      state: CaptureState.closed,
+      type: CaptureMessageType.close,
+      data: data.isEmpty ? null : data,
+    );
+  }
+
+  void _failStream(String id, Object error) {
+    _finishStream(
+      id,
+      state: CaptureState.error,
+      type: CaptureMessageType.error,
+      data: error.toString(),
+      errorMessage: error.toString(),
+    );
+  }
+
+  void _finishStream(
+    String id, {
+    required CaptureState state,
+    required CaptureMessageType type,
+    Object? data,
+    String? errorMessage,
+  }) {
+    if (!isCaptureEnabled || _deletedEntryIds.contains(id)) {
+      return;
+    }
+
+    final index = _entries.indexWhere((entry) => entry.id == id);
+    if (index == -1) {
+      return;
+    }
+
+    final entry = _entries[index];
+    final closedAt = DateTime.now();
+    final updated = entry.copyWith(
+      state: state,
+      errorMessage: errorMessage,
+      closedAt: closedAt,
+      messages: [
+        ...entry.messages,
+        CaptureMessage(
+          direction: CaptureMessageDirection.internal,
+          type: type,
+          data: data,
+          timestamp: closedAt,
+        ),
+      ],
+    );
+    _replaceEntry(index, updated);
+  }
+
+  void _replaceEntry(int index, CaptureEntry entry) {
+    _entries[index] = entry;
+    if (_selectedEntry?.id == entry.id) {
+      _selectedEntry = entry;
+    }
+    _cleanupEntries();
+    notifyListeners();
+  }
+
+  String _nextStreamId() {
+    return 'stream-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  String _streamMethod(CaptureProtocol protocol) {
+    return switch (protocol) {
+      CaptureProtocol.sse => 'SSE',
+      CaptureProtocol.webSocket => 'WS',
+      CaptureProtocol.http => 'HTTP',
+    };
   }
 
   bool? _readBool(String key) {
