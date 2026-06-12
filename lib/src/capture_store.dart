@@ -341,7 +341,55 @@ class CaptureStore extends ChangeNotifier {
     if (_entries.length <= _maxCacheSize) {
       return;
     }
-    _entries.removeRange(_maxCacheSize, _entries.length);
+
+    while (_entries.length > _maxCacheSize) {
+      final index = _cleanupCandidateIndex();
+      if (index == -1) {
+        return;
+      }
+      final removed = _entries.removeAt(index);
+      if (_selectedEntry?.id == removed.id) {
+        _selectedEntry = null;
+      }
+    }
+  }
+
+  int _cleanupCandidateIndex() {
+    var bestIndex = -1;
+    var bestPriority = -1;
+
+    for (var index = 0; index < _entries.length; index += 1) {
+      final priority = _cleanupPriority(_entries[index]);
+      if (priority == null) {
+        continue;
+      }
+      if (priority > bestPriority ||
+          (priority == bestPriority && index > bestIndex)) {
+        bestIndex = index;
+        bestPriority = priority;
+      }
+    }
+
+    return bestIndex;
+  }
+
+  int? _cleanupPriority(CaptureEntry entry) {
+    final isOpenStream =
+        entry.protocol != CaptureProtocol.http &&
+        entry.state == CaptureState.open;
+    if (isOpenStream) {
+      return null;
+    }
+
+    if (entry.protocol != CaptureProtocol.http) {
+      return 2;
+    }
+
+    if (entry.statusCode == null && entry.errorMessage == null) {
+      return 1;
+    }
+
+    return 3;
   }
 
   void _addStreamMessage(

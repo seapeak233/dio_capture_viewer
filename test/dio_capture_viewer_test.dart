@@ -158,6 +158,89 @@ void main() {
     expect(store.entries, isEmpty);
   });
 
+  test('cleanup preserves open streams and removes http entries first', () {
+    final store = CaptureStore(enabled: true, maxCacheSize: 20);
+    final sessions = <CaptureStreamSession>[];
+
+    for (var index = 0; index < 3; index += 1) {
+      sessions.add(
+        store.startStreamCapture(
+          protocol: CaptureProtocol.webSocket,
+          url: 'wss://example.com/socket/$index',
+        ),
+      );
+    }
+
+    for (var index = 0; index < 20; index += 1) {
+      store.addEntry(
+        CaptureEntry(
+          id: 'http-$index',
+          method: 'GET',
+          url: 'https://example.com/$index',
+          statusCode: 200,
+          timestamp: DateTime(2026),
+        ),
+      );
+    }
+
+    final ids = store.entries.map((entry) => entry.id).toSet();
+    for (final session in sessions) {
+      expect(ids, contains(session.id));
+    }
+    expect(store.entries, hasLength(20));
+    expect(
+      store.entries.where((entry) => entry.protocol == CaptureProtocol.http),
+      hasLength(17),
+    );
+  });
+
+  test('cleanup allows overflow when all entries are open streams', () {
+    final store = CaptureStore(enabled: true, maxCacheSize: 20);
+
+    for (var index = 0; index < 25; index += 1) {
+      store.startStreamCapture(
+        protocol: CaptureProtocol.sse,
+        url: 'https://example.com/events/$index',
+      );
+    }
+
+    expect(store.entries, hasLength(25));
+    expect(
+      store.entries.every((entry) => entry.state == CaptureState.open),
+      isTrue,
+    );
+  });
+
+  test('cleanup removes closed stream entries when eligible', () {
+    final store = CaptureStore(enabled: true, maxCacheSize: 20);
+
+    for (var index = 0; index < 19; index += 1) {
+      store.startStreamCapture(
+        protocol: CaptureProtocol.webSocket,
+        url: 'wss://example.com/open/$index',
+      );
+    }
+
+    final closedSession = store.startStreamCapture(
+      protocol: CaptureProtocol.sse,
+      url: 'https://example.com/closed',
+    );
+    closedSession.close();
+
+    store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/new-open',
+    );
+
+    final ids = store.entries.map((entry) => entry.id).toSet();
+    expect(ids, isNot(contains(closedSession.id)));
+    expect(store.entries, hasLength(20));
+    expect(
+      store.entries.where((entry) => entry.state == CaptureState.open),
+      hasLength(20),
+    );
+  });
+
   test('interceptor records request and response', () async {
     final store = CaptureStore(enabled: true);
     final dio = Dio()
