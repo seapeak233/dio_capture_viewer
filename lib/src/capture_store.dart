@@ -425,10 +425,13 @@ class CaptureStore extends ChangeNotifier {
   }
 
   void _closeStream(String id, {int? code, String? reason}) {
-    final data = <String, Object?>{
-      if (code != null) 'code': code,
-      if (reason != null) 'reason': reason,
-    };
+    final data = <String, Object?>{};
+    if (code != null) {
+      data['code'] = code;
+    }
+    if (reason != null) {
+      data['reason'] = reason;
+    }
     _finishStream(
       id,
       state: CaptureState.closed,

@@ -1053,6 +1053,8 @@ class _MethodChip extends StatelessWidget {
       'POST' => theme.info,
       'PUT' || 'PATCH' => theme.warning,
       'DELETE' => theme.error,
+      'SSE' => theme.info,
+      'WS' => theme.brandAccent,
       _ => theme.textMuted,
     };
 
@@ -1102,7 +1104,13 @@ class _EntryDetails extends StatelessWidget {
             children: [
               _TabButton(store: store, index: 0, label: 'Overview'),
               _TabButton(store: store, index: 1, label: 'Request'),
-              _TabButton(store: store, index: 2, label: 'Response'),
+              _TabButton(
+                store: store,
+                index: 2,
+                label: entry.protocol == CaptureProtocol.http
+                    ? 'Response'
+                    : 'Messages',
+              ),
               const Spacer(),
             ],
           ),
@@ -1117,12 +1125,15 @@ class _EntryDetails extends StatelessWidget {
                 _PayloadSection('Request Body', entry.requestData),
               ],
             ),
-            2 => _PayloadTab(
-              sections: [
-                _PayloadSection('Response Data', entry.responseData),
-                _PayloadSection('Error Message', entry.errorMessage),
-              ],
-            ),
+            2 =>
+              entry.protocol == CaptureProtocol.http
+                  ? _PayloadTab(
+                      sections: [
+                        _PayloadSection('Response Data', entry.responseData),
+                        _PayloadSection('Error Message', entry.errorMessage),
+                      ],
+                    )
+                  : _MessagesTab(messages: entry.messages),
             _ => const SizedBox.shrink(),
           },
         ),
@@ -1191,10 +1202,16 @@ class _OverviewTab extends StatelessWidget {
                 _InfoRow(label: 'Method', value: entry.method),
                 _InfoRow(label: 'URL', value: entry.url),
                 _InfoRow(
-                  label: 'Status',
-                  value: entry.statusCode?.toString() ?? 'Pending',
+                  label: 'Protocol',
+                  value: _protocolText(entry.protocol),
                 ),
+                _InfoRow(label: 'Status', value: _statusText(entry)),
                 _InfoRow(label: 'Time', value: _dateTimeText(entry.timestamp)),
+                if (entry.closedAt != null)
+                  _InfoRow(
+                    label: 'Closed',
+                    value: _dateTimeText(entry.closedAt!),
+                  ),
                 if (entry.duration != null)
                   _InfoRow(
                     label: 'Duration',
@@ -1209,6 +1226,11 @@ class _OverviewTab extends StatelessWidget {
                   label: 'Response Size',
                   value: _formatBytes(entry.responseSize),
                 ),
+                if (entry.protocol != CaptureProtocol.http)
+                  _InfoRow(
+                    label: 'Messages',
+                    value: entry.messages.length.toString(),
+                  ),
                 if (entry.errorMessage != null)
                   _InfoRow(
                     label: 'Error',
@@ -1328,6 +1350,40 @@ class _PayloadTab extends StatelessWidget {
           data: section.data,
           initiallyCollapsed: section.title == 'Headers',
         );
+      },
+    );
+  }
+}
+
+class _MessagesTab extends StatelessWidget {
+  const _MessagesTab({required this.messages});
+
+  final List<CaptureMessage> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = CaptureTheme(context);
+    if (messages.isEmpty) {
+      return Center(
+        child: Text(
+          'No messages',
+          style: theme.textTheme.bodyMedium?.copyWith(color: theme.textMuted),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: messages.length,
+      separatorBuilder: (context, _) => const SizedBox(height: 20),
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final title = [
+          _timeText(message.timestamp),
+          _messageDirectionText(message.direction),
+          message.label ?? _messageTypeText(message.type),
+        ].join('  ');
+        return _PayloadView(title: title, data: message.data);
       },
     );
   }
@@ -1478,6 +1534,22 @@ void _copyAllData(BuildContext context, CaptureEntry entry) {
   writePayload('Query Parameters', entry.queryParameters);
   writePayload('Request Body', entry.requestData);
   writePayload('Response Data', entry.responseData);
+  if (entry.messages.isNotEmpty) {
+    writePayload(
+      'Messages',
+      entry.messages
+          .map(
+            (message) => <String, Object?>{
+              'time': message.timestamp.toIso8601String(),
+              'direction': _messageDirectionText(message.direction),
+              'type': _messageTypeText(message.type),
+              if (message.label != null) 'label': message.label,
+              'data': message.data,
+            },
+          )
+          .toList(growable: false),
+    );
+  }
 
   _copyText(context, buffer.toString());
 }
@@ -1528,6 +1600,14 @@ bool _isEmptyPayload(Object? data) {
 
 Color _statusColor(BuildContext context, CaptureEntry entry) {
   final theme = CaptureTheme(context);
+  if (entry.protocol != CaptureProtocol.http) {
+    return switch (entry.state) {
+      CaptureState.open => theme.info,
+      CaptureState.closed || CaptureState.success => theme.success,
+      CaptureState.error => theme.error,
+      CaptureState.pending => theme.warning,
+    };
+  }
   if (_businessCode(entry) case final code? when code != 200) {
     return theme.warning;
   }
@@ -1541,6 +1621,15 @@ Color _statusColor(BuildContext context, CaptureEntry entry) {
 }
 
 String _statusText(CaptureEntry entry) {
+  if (entry.protocol != CaptureProtocol.http) {
+    return switch (entry.state) {
+      CaptureState.open => 'Open',
+      CaptureState.closed => 'Closed',
+      CaptureState.error => 'Error',
+      CaptureState.success => 'Success',
+      CaptureState.pending => 'Pending',
+    };
+  }
   if (entry.isSuccess || entry.statusCode != null) {
     final statusText = entry.statusCode.toString();
     if (_businessCode(entry) case final code? when code != 200) {
@@ -1552,6 +1641,32 @@ String _statusText(CaptureEntry entry) {
     return 'Error';
   }
   return 'Pending';
+}
+
+String _protocolText(CaptureProtocol protocol) {
+  return switch (protocol) {
+    CaptureProtocol.http => 'HTTP',
+    CaptureProtocol.sse => 'SSE',
+    CaptureProtocol.webSocket => 'WebSocket',
+  };
+}
+
+String _messageDirectionText(CaptureMessageDirection direction) {
+  return switch (direction) {
+    CaptureMessageDirection.inbound => 'IN',
+    CaptureMessageDirection.outbound => 'OUT',
+    CaptureMessageDirection.internal => 'SYS',
+  };
+}
+
+String _messageTypeText(CaptureMessageType type) {
+  return switch (type) {
+    CaptureMessageType.message => 'message',
+    CaptureMessageType.event => 'event',
+    CaptureMessageType.open => 'open',
+    CaptureMessageType.close => 'close',
+    CaptureMessageType.error => 'error',
+  };
 }
 
 int? _businessCode(CaptureEntry entry) {
