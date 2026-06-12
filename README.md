@@ -1,5 +1,7 @@
 # dio_capture_viewer
 
+[![pub package](https://img.shields.io/pub/v/dio_capture_viewer.svg)](https://pub.dev/packages/dio_capture_viewer)
+
 [中文文档](README_zh.md)
 
 A lightweight in-app request capture viewer for Flutter apps that use Dio.

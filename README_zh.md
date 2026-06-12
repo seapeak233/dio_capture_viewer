@@ -1,5 +1,7 @@
 # dio_capture_viewer
 
+[![pub package](https://img.shields.io/pub/v/dio_capture_viewer.svg)](https://pub.dev/packages/dio_capture_viewer)
+
 [English README](README.md)
 
 一个用于 Flutter 应用的轻量级应用内请求抓包查看器，适用于使用 Dio 的项目。
