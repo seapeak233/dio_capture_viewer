@@ -102,12 +102,54 @@ pass it into `CaptureStore(preferences: yourPreferences)`, then call
 The package does not export a settings page. It only provides the setting entry
 callback, the floating viewer modes, the capture store, and the Dio interceptor.
 
+## SSE and WebSocket capture
+
+SSE and WebSocket capture is manual and dependency-free. Create a stream
+session, then report inbound, outbound, close, and error events from whichever
+client your app already uses.
+
+```dart
+final socketCapture = captureController.store.startStreamCapture(
+  protocol: CaptureProtocol.webSocket,
+  url: 'wss://example.com/socket',
+);
+
+// Example shape for a WebSocketChannel-like client.
+channel.stream.listen(
+  socketCapture.addInbound,
+  onError: socketCapture.fail,
+  onDone: socketCapture.close,
+);
+
+void sendSocketMessage(Object message) {
+  socketCapture.addOutbound(message);
+  channel.sink.add(message);
+}
+```
+
+```dart
+final sseCapture = captureController.store.startStreamCapture(
+  protocol: CaptureProtocol.sse,
+  url: 'https://example.com/events',
+);
+
+// Example shape for an EventSource/SSE stream.
+eventStream.listen(
+  (event) => sseCapture.addEvent(
+    {'event': event.event, 'data': event.data},
+    label: event.event,
+  ),
+  onError: sseCapture.fail,
+  onDone: sseCapture.close,
+);
+```
+
+If a captured stream entry is manually deleted or all entries are cleared,
+updates from the old session are ignored. Open SSE/WebSocket entries are also
+protected from automatic cache cleanup; ordinary HTTP entries and closed streams
+are removed first when the cache exceeds `maxCacheSize`.
+
 ## Notes
 
 This package is meant for development, QA, and internal debug builds. Avoid
 showing captured production traffic to end users.
-
-## TODO
-
-- Support capturing Server-Sent Events (SSE) streams.
-- Support capturing WebSocket connection metadata and message frames.

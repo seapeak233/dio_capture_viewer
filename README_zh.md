@@ -93,11 +93,48 @@ final maxCacheSize = captureController.store.maxCacheSize;
 
 这个包不导出设置页。它只提供设置入口回调、悬浮查看器模式、capture store 和 Dio interceptor。
 
+## SSE 和 WebSocket 抓包
+
+SSE 和 WebSocket 抓包是手动上报的，不会给本库增加额外依赖。你只需要创建一个 stream session，然后把业务里已有客户端的入站、出站、关闭和错误事件上报给它。
+
+```dart
+final socketCapture = captureController.store.startStreamCapture(
+  protocol: CaptureProtocol.webSocket,
+  url: 'wss://example.com/socket',
+);
+
+// 类似 WebSocketChannel 客户端的接入方式。
+channel.stream.listen(
+  socketCapture.addInbound,
+  onError: socketCapture.fail,
+  onDone: socketCapture.close,
+);
+
+void sendSocketMessage(Object message) {
+  socketCapture.addOutbound(message);
+  channel.sink.add(message);
+}
+```
+
+```dart
+final sseCapture = captureController.store.startStreamCapture(
+  protocol: CaptureProtocol.sse,
+  url: 'https://example.com/events',
+);
+
+// 类似 EventSource/SSE stream 的接入方式。
+eventStream.listen(
+  (event) => sseCapture.addEvent(
+    {'event': event.event, 'data': event.data},
+    label: event.event,
+  ),
+  onError: sseCapture.fail,
+  onDone: sseCapture.close,
+);
+```
+
+如果用户手动删除某个 stream 记录，或者清空全部记录，旧 session 后续再上报的数据会被忽略，不会重新出现在列表里。自动缓存清理也会保护未断开的 SSE/WebSocket，优先清理普通 HTTP 请求和已经断开的 stream。
+
 ## 注意事项
 
 这个包主要用于开发、QA 和内部调试版本。避免向最终用户展示捕获到的生产流量。
-
-## TODO
-
-- 支持捕获 Server-Sent Events (SSE) 流。
-- 支持捕获 WebSocket 连接元数据和消息帧。
