@@ -3,6 +3,52 @@ import 'package:dio_capture_viewer/dio_capture_viewer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('capture entry defaults to http pending state', () {
+    final entry = CaptureEntry(
+      id: 'http-1',
+      method: 'GET',
+      url: 'https://example.com/users',
+      timestamp: DateTime(2026),
+    );
+
+    expect(entry.protocol, CaptureProtocol.http);
+    expect(entry.state, CaptureState.pending);
+    expect(entry.messages, isEmpty);
+    expect(entry.closedAt, isNull);
+  });
+
+  test('capture entry can store stream messages immutably', () {
+    final startedAt = DateTime(2026);
+    final messageAt = DateTime(2026, 1, 1, 0, 0, 1);
+    final entry = CaptureEntry(
+      id: 'sse-1',
+      method: 'SSE',
+      url: 'https://example.com/events',
+      protocol: CaptureProtocol.sse,
+      state: CaptureState.open,
+      timestamp: startedAt,
+    );
+
+    final updated = entry.copyWith(
+      messages: [
+        CaptureMessage(
+          direction: CaptureMessageDirection.inbound,
+          type: CaptureMessageType.event,
+          data: {'event': 'message', 'data': 'hello'},
+          timestamp: messageAt,
+          label: 'message',
+        ),
+      ],
+    );
+
+    expect(entry.messages, isEmpty);
+    expect(updated.messages, hasLength(1));
+    expect(updated.messages.single.direction, CaptureMessageDirection.inbound);
+    expect(updated.messages.single.type, CaptureMessageType.event);
+    expect(updated.messages.single.label, 'message');
+    expect(updated.responseSize, greaterThan(0));
+  });
+
   test('store keeps newest entries within max cache size', () {
     final store = CaptureStore(enabled: true, maxCacheSize: 20);
 
