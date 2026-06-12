@@ -1,4 +1,4 @@
-import 'dart:async' show FutureOr, unawaited;
+import 'dart:async' show FutureOr, Timer, unawaited;
 
 import 'package:flutter/material.dart';
 
@@ -70,18 +70,23 @@ class CaptureStore extends ChangeNotifier {
   static const int minCacheSize = 20;
   static const int maxCacheSizeLimit = 500;
   static const int defaultMaxCacheSize = 100;
+  static const Duration defaultStreamNotifyInterval = Duration(seconds: 2);
 
   CaptureStore({
     CapturePreferences? preferences,
     bool enabled = false,
     int maxCacheSize = defaultMaxCacheSize,
+    Duration streamNotifyInterval = defaultStreamNotifyInterval,
   }) : _preferences = preferences,
        _isEnabled = enabled,
-       _maxCacheSize = maxCacheSize.clamp(minCacheSize, maxCacheSizeLimit);
+       _maxCacheSize = maxCacheSize.clamp(minCacheSize, maxCacheSizeLimit),
+       _streamNotifyInterval = streamNotifyInterval;
 
   final CapturePreferences? _preferences;
+  final Duration _streamNotifyInterval;
   final List<CaptureEntry> _entries = <CaptureEntry>[];
   final Set<String> _deletedEntryIds = <String>{};
+  Timer? _streamNotifyTimer;
 
   bool _isEnabled;
   bool _isPanelVisible = false;
@@ -118,6 +123,12 @@ class CaptureStore extends ChangeNotifier {
   int get currentTabIndex => _currentTabIndex;
   String get searchFilter => _searchFilter;
 
+  @override
+  void dispose() {
+    _cancelStreamNotifyTimer();
+    super.dispose();
+  }
+
   void restore() {
     final enabled = _readBool(_captureEnabledKey);
     final maxCacheSize = _readInt(_captureMaxCacheSizeKey);
@@ -134,6 +145,7 @@ class CaptureStore extends ChangeNotifier {
   void setEnabled(bool value) {
     _isEnabled = value;
     if (!value) {
+      _cancelStreamNotifyTimer();
       _entries.clear();
       _selectedEntry = null;
     }
@@ -255,6 +267,7 @@ class CaptureStore extends ChangeNotifier {
   }
 
   void clearEntries() {
+    _cancelStreamNotifyTimer();
     _deletedEntryIds.addAll(_entries.map((entry) => entry.id));
     _entries.clear();
     _selectedEntry = null;
@@ -268,6 +281,9 @@ class CaptureStore extends ChangeNotifier {
       return;
     }
     final removed = _entries.removeAt(index);
+    if (!_hasPendingStreamMessages()) {
+      _cancelStreamNotifyTimer();
+    }
     if (_selectedEntry?.id == removed.id) {
       _selectedEntry = null;
     }
@@ -292,7 +308,7 @@ class CaptureStore extends ChangeNotifier {
       method: _streamMethod(protocol),
       url: url,
       protocol: protocol,
-      state: CaptureState.open,
+      state: CaptureState.success,
       headers: headers == null ? null : Map<String, dynamic>.from(headers),
       requestData: requestData,
       queryParameters: queryParameters == null
@@ -331,7 +347,10 @@ class CaptureStore extends ChangeNotifier {
     final error = _entries.where((entry) => entry.isError).length;
     final pending = _entries
         .where(
-          (entry) => entry.statusCode == null && entry.errorMessage == null,
+          (entry) =>
+              entry.state == CaptureState.pending &&
+              entry.statusCode == null &&
+              entry.errorMessage == null,
         )
         .length;
     return (total: total, success: success, error: error, pending: pending);
@@ -374,10 +393,11 @@ class CaptureStore extends ChangeNotifier {
   }
 
   int? _cleanupPriority(CaptureEntry entry) {
-    final isOpenStream =
+    final isConnectedStream =
         entry.protocol != CaptureProtocol.http &&
-        entry.state == CaptureState.open;
-    if (isOpenStream) {
+        entry.state == CaptureState.success &&
+        entry.closedAt == null;
+    if (isConnectedStream) {
       return null;
     }
 
@@ -421,7 +441,8 @@ class CaptureStore extends ChangeNotifier {
         ),
       ],
     );
-    _replaceEntry(index, updated);
+    _replaceEntry(index, updated, notify: false);
+    _scheduleStreamNotify();
   }
 
   void _closeStream(String id, {int? code, String? reason}) {
@@ -434,7 +455,7 @@ class CaptureStore extends ChangeNotifier {
     }
     _finishStream(
       id,
-      state: CaptureState.closed,
+      state: CaptureState.success,
       type: CaptureMessageType.close,
       data: data.isEmpty ? null : data,
     );
@@ -482,16 +503,45 @@ class CaptureStore extends ChangeNotifier {
         ),
       ],
     );
+    _cancelStreamNotifyTimer();
     _replaceEntry(index, updated);
   }
 
-  void _replaceEntry(int index, CaptureEntry entry) {
+  void _replaceEntry(int index, CaptureEntry entry, {bool notify = true}) {
     _entries[index] = entry;
     if (_selectedEntry?.id == entry.id) {
       _selectedEntry = entry;
     }
     _cleanupEntries();
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
+  }
+
+  void _scheduleStreamNotify() {
+    if (_streamNotifyInterval == Duration.zero) {
+      notifyListeners();
+      return;
+    }
+    if (_streamNotifyTimer != null) {
+      return;
+    }
+    _streamNotifyTimer = Timer(_streamNotifyInterval, () {
+      _streamNotifyTimer = null;
+      notifyListeners();
+    });
+  }
+
+  void _cancelStreamNotifyTimer() {
+    _streamNotifyTimer?.cancel();
+    _streamNotifyTimer = null;
+  }
+
+  bool _hasPendingStreamMessages() {
+    return _entries.any(
+      (entry) =>
+          entry.protocol != CaptureProtocol.http && entry.closedAt == null,
+    );
   }
 
   String _nextStreamId() {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio_capture_viewer/dio_capture_viewer.dart';
@@ -32,6 +33,11 @@ final captureController = DioCaptureViewerController.init(
 
 final dio = Dio(BaseOptions(baseUrl: apiHost, responseType: ResponseType.json))
   ..interceptors.add(captureController.createInterceptor());
+
+final mockDio =
+    Dio(BaseOptions(baseUrl: apiHost, responseType: ResponseType.json))
+      ..interceptors.add(captureController.createInterceptor())
+      ..httpClientAdapter = _MockHttpAdapter();
 
 class ExampleApp extends StatelessWidget {
   const ExampleApp({super.key});
@@ -114,56 +120,112 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          _ButtonGroup(
+            title: 'Real requests',
             children: [
-              FilledButton(
+              _SmallButton(
+                label: 'GET post',
                 onPressed: () =>
                     _runRequest(() => dio.get<dynamic>('/posts/1')),
-                child: const Text('GET post'),
               ),
-              FilledButton.tonal(
+              _SmallButton(
+                label: 'GET comments',
                 onPressed: () => _runRequest(
                   () => dio.get<dynamic>(
                     '/comments',
                     queryParameters: {'postId': 1},
                   ),
                 ),
-                child: const Text('GET comments'),
               ),
-              FilledButton.tonal(
+              _SmallButton(
+                label: 'POST',
                 onPressed: () => _runRequest(
                   () => dio.post<dynamic>(
                     '/posts',
                     data: {'title': 'hello', 'body': 'capture me', 'userId': 1},
                   ),
                 ),
-                child: const Text('POST'),
               ),
-              OutlinedButton(
+              _SmallButton(
+                label: 'Error',
                 onPressed: () =>
                     _runRequest(() => dio.get<dynamic>('/missing-endpoint')),
-                child: const Text('Error'),
               ),
-              OutlinedButton(
+            ],
+          ),
+          const SizedBox(height: 18),
+          _ButtonGroup(
+            title: 'Mock HTTP',
+            children: [
+              _SmallButton(
+                label: 'GET',
+                filled: true,
+                onPressed: () =>
+                    _runRequest(() => mockDio.get<dynamic>('/posts/1')),
+              ),
+              _SmallButton(
+                label: 'List',
+                filled: true,
+                onPressed: () => _runRequest(
+                  () => mockDio.get<dynamic>(
+                    '/comments',
+                    queryParameters: {'postId': 1},
+                  ),
+                ),
+              ),
+              _SmallButton(
+                label: 'POST',
+                filled: true,
+                onPressed: () => _runRequest(
+                  () => mockDio.post<dynamic>(
+                    '/posts',
+                    data: {'title': 'hello', 'body': 'capture me', 'userId': 1},
+                  ),
+                ),
+              ),
+              _SmallButton(
+                label: 'Error',
+                onPressed: () => _runRequest(
+                  () => mockDio.get<dynamic>('/missing-endpoint'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _ButtonGroup(
+            title: 'Mock SSE and WebSocket',
+            subtitle: 'Advanced manual stream capture',
+            children: [
+              _SmallButton(
+                label: 'WS close',
+                filled: true,
+                onPressed: () => _mockWebSocket(closeNormally: true),
+              ),
+              _SmallButton(
+                label: 'WS error',
+                onPressed: () => _mockWebSocket(closeNormally: false),
+              ),
+              _SmallButton(
+                label: 'SSE close',
+                filled: true,
+                onPressed: () => _mockSse(closeNormally: true),
+              ),
+              _SmallButton(
+                label: 'SSE error',
+                onPressed: () => _mockSse(closeNormally: false),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _SmallButton(
+                label: 'Toggle viewer',
                 onPressed: () => captureController.store.togglePanel(),
-                child: const Text('Toggle viewer'),
               ),
-              OutlinedButton(
-                onPressed: () {
-                  captureController.store.showMini();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ExampleCaptureSettingsPage(
-                        store: captureController.store,
-                        host: apiHost,
-                      ),
-                    ),
-                  );
-                },
-                child: const Text('Capture settings'),
-              ),
+              _SmallButton(label: 'Settings', onPressed: _openSettings),
             ],
           ),
           const SizedBox(height: 24),
@@ -186,4 +248,256 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
       ),
     );
   }
+
+  void _openSettings() {
+    captureController.store.showMini();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ExampleCaptureSettingsPage(
+          store: captureController.store,
+          host: apiHost,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _mockWebSocket({required bool closeNormally}) async {
+    final session = captureController.store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://mock.local/realtime',
+      headers: {'Sec-WebSocket-Protocol': 'chat.v1'},
+    );
+
+    session.addOutbound({'type': 'subscribe', 'room': 'debug'});
+    setState(() {
+      _lastResult = const JsonEncoder.withIndent('  ').convert({
+        'mock': 'websocket',
+        'sessionId': session.id,
+        'frames': 10,
+        'state': 'streaming',
+      });
+    });
+
+    for (var index = 1; index <= 10; index += 1) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      session.addInbound({
+        'type': 'message',
+        'sequence': index,
+        'from': index.isOdd ? 'qa-bot' : 'debug-server',
+        'body': 'Local WebSocket frame #$index',
+        'latencyMs': 30 + index * 7,
+      }, label: 'frame-$index');
+    }
+
+    if (closeNormally) {
+      session.close(code: 1000, reason: 'normal closure after 10 frames');
+    } else {
+      session.fail('Mock WebSocket abnormal closure after frame 10: code 1006');
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _lastResult = const JsonEncoder.withIndent('  ').convert({
+        'mock': 'websocket',
+        'sessionId': session.id,
+        'frames': 10,
+        'state': closeNormally ? 'closed' : 'error',
+      });
+    });
+  }
+
+  Future<void> _mockSse({required bool closeNormally}) async {
+    final session = captureController.store.startStreamCapture(
+      protocol: CaptureProtocol.sse,
+      url: 'https://mock.local/events',
+    );
+
+    setState(() {
+      _lastResult = const JsonEncoder.withIndent('  ').convert({
+        'mock': 'sse',
+        'sessionId': session.id,
+        'events': 10,
+        'state': 'streaming',
+      });
+    });
+
+    for (var index = 1; index <= 10; index += 1) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      final eventName = index % 3 == 0 ? 'heartbeat' : 'notification';
+      session.addEvent({
+        'event': eventName,
+        'id': index,
+        'data': {
+          'title': 'Local SSE event #$index',
+          'unread': index,
+          'priority': index.isEven ? 'normal' : 'high',
+        },
+      }, label: eventName);
+    }
+
+    if (closeNormally) {
+      session.close(reason: 'server finished stream after 10 events');
+    } else {
+      session.fail('Mock SSE connection dropped after event 10');
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _lastResult = const JsonEncoder.withIndent('  ').convert({
+        'mock': 'sse',
+        'sessionId': session.id,
+        'events': 10,
+        'state': closeNormally ? 'closed' : 'error',
+      });
+    });
+  }
+}
+
+class _ButtonGroup extends StatelessWidget {
+  const _ButtonGroup({
+    required this.title,
+    required this.children,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleSmall),
+        if (subtitle != null)
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, runSpacing: 6, children: children),
+      ],
+    );
+  }
+}
+
+class _SmallButton extends StatelessWidget {
+  const _SmallButton({
+    required this.label,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = ButtonStyle(
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      minimumSize: WidgetStateProperty.all(const Size(0, 32)),
+      padding: WidgetStateProperty.all(
+        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      ),
+      textStyle: WidgetStateProperty.all(
+        Theme.of(context).textTheme.labelSmall,
+      ),
+    );
+
+    if (filled) {
+      return FilledButton.tonal(
+        onPressed: onPressed,
+        style: style,
+        child: Text(label),
+      );
+    }
+
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: style,
+      child: Text(label),
+    );
+  }
+}
+
+class _MockHttpAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 240));
+
+    final path = options.uri.path;
+    if (path == '/posts/1') {
+      return _jsonResponse(options, 200, {
+        'id': 1,
+        'title': 'Local mock post',
+        'body': 'This response is generated inside the example app.',
+        'userId': 1,
+      });
+    }
+
+    if (path == '/comments') {
+      final postId = options.uri.queryParameters['postId'];
+      return _jsonResponse(options, 200, [
+        {
+          'id': 1,
+          'postId': postId,
+          'name': 'Mock QA comment',
+          'email': 'qa@example.local',
+          'body': 'Captured from a local Dio adapter.',
+        },
+        {
+          'id': 2,
+          'postId': postId,
+          'name': 'Mock dev comment',
+          'email': 'dev@example.local',
+          'body': 'No network request was made.',
+        },
+      ]);
+    }
+
+    if (path == '/posts' && options.method.toUpperCase() == 'POST') {
+      return _jsonResponse(options, 201, {
+        'id': 101,
+        'created': true,
+        'received': options.data,
+      });
+    }
+
+    return _jsonResponse(options, 404, {
+      'code': 404,
+      'message': 'Mock endpoint not found',
+      'path': path,
+    });
+  }
+
+  ResponseBody _jsonResponse(
+    RequestOptions options,
+    int statusCode,
+    Object body,
+  ) {
+    return ResponseBody.fromString(
+      jsonEncode(body),
+      statusCode,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+        'x-mock-source': ['example'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

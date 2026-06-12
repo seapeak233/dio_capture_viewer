@@ -60,7 +60,10 @@ class CaptureInterceptor extends Interceptor {
     _updateEntry(
       response.requestOptions,
       statusCode: response.statusCode,
-      responseData: _safePayload(response.data),
+      responseData: _safePayload(
+        response.data,
+        contentType: response.headers.value(Headers.contentTypeHeader),
+      ),
       duration: duration,
     );
     handler.next(response);
@@ -80,7 +83,10 @@ class CaptureInterceptor extends Interceptor {
     _updateEntry(
       err.requestOptions,
       statusCode: err.response?.statusCode,
-      responseData: _safePayload(err.response?.data),
+      responseData: _safePayload(
+        err.response?.data,
+        contentType: err.response?.headers.value(Headers.contentTypeHeader),
+      ),
       errorMessage: err.message ?? err.error?.toString(),
       duration: duration,
     );
@@ -149,9 +155,13 @@ class CaptureInterceptor extends Interceptor {
     return Map<String, dynamic>.from(value);
   }
 
-  Object? _safePayload(Object? value) {
+  Object? _safePayload(Object? value, {String? contentType}) {
     if (value == null) {
       return null;
+    }
+
+    if (_isFileContentType(contentType)) {
+      return _filePlaceholder(contentType: contentType, value: value);
     }
 
     if (value is FormData) {
@@ -165,6 +175,11 @@ class CaptureInterceptor extends Interceptor {
                 'field': entry.key,
                 'filename': entry.value.filename,
                 'length': entry.value.length,
+                'content': _filePlaceholder(
+                  filename: entry.value.filename,
+                  contentType: entry.value.contentType?.toString(),
+                  length: entry.value.length,
+                ),
               },
             )
             .toList(growable: false),
@@ -180,6 +195,66 @@ class CaptureInterceptor extends Interceptor {
     }
 
     return value.toString();
+  }
+
+  bool _isFileContentType(String? contentType) {
+    if (contentType == null) {
+      return false;
+    }
+    final normalized = contentType.toLowerCase();
+    return normalized.startsWith('image/') ||
+        normalized.startsWith('video/') ||
+        normalized.startsWith('audio/') ||
+        normalized == 'application/octet-stream' ||
+        normalized == 'application/pdf' ||
+        normalized.contains('zip') ||
+        normalized.contains('multipart/form-data');
+  }
+
+  String _filePlaceholder({
+    String? filename,
+    String? contentType,
+    Object? value,
+    int? length,
+  }) {
+    final parts = <String>[];
+    if (filename != null && filename.isNotEmpty) {
+      parts.add(filename);
+    }
+    if (contentType != null && contentType.isNotEmpty) {
+      parts.add(contentType.split(';').first.trim());
+    }
+    final byteLength = length ?? _byteLength(value);
+    if (byteLength != null) {
+      parts.add(_formatBytes(byteLength));
+    }
+    if (parts.isEmpty) {
+      parts.add('file content');
+    }
+    return '[${parts.join(', ')}]';
+  }
+
+  int? _byteLength(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is List<int>) {
+      return value.length;
+    }
+    if (value is String) {
+      return value.length;
+    }
+    return null;
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) {
+      return '${bytes}B';
+    }
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
   }
 
   void _log(Object error, StackTrace stackTrace, String message) {

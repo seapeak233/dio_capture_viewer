@@ -68,33 +68,38 @@ void main() {
     expect(store.entries.last.id, '5');
   });
 
-  test('store records websocket stream session messages and close', () {
-    final store = CaptureStore(enabled: true);
-    final session = store.startStreamCapture(
-      protocol: CaptureProtocol.webSocket,
-      url: 'wss://example.com/socket',
-      headers: {'x-debug': '1'},
-    );
+  test(
+    'store records websocket stream session as success after open and close',
+    () {
+      final store = CaptureStore(enabled: true);
+      final session = store.startStreamCapture(
+        protocol: CaptureProtocol.webSocket,
+        url: 'wss://example.com/socket',
+        headers: {'x-debug': '1'},
+      );
 
-    session.addOutbound({'type': 'ping'}, label: 'send');
-    session.addInbound({'type': 'pong'}, label: 'receive');
-    session.close(code: 1000, reason: 'normal');
+      session.addOutbound({'type': 'ping'}, label: 'send');
+      session.addInbound({'type': 'pong'}, label: 'receive');
+      session.close(code: 1000, reason: 'normal');
 
-    expect(store.entries, hasLength(1));
-    final entry = store.entries.single;
-    expect(entry.id, session.id);
-    expect(entry.method, 'WS');
-    expect(entry.protocol, CaptureProtocol.webSocket);
-    expect(entry.state, CaptureState.closed);
-    expect(entry.headers, {'x-debug': '1'});
-    expect(entry.closedAt, isNotNull);
-    expect(entry.messages, hasLength(3));
-    expect(entry.messages[0].direction, CaptureMessageDirection.outbound);
-    expect(entry.messages[0].type, CaptureMessageType.message);
-    expect(entry.messages[1].direction, CaptureMessageDirection.inbound);
-    expect(entry.messages[2].type, CaptureMessageType.close);
-    expect(entry.messages[2].data, {'code': 1000, 'reason': 'normal'});
-  });
+      expect(store.entries, hasLength(1));
+      final entry = store.entries.single;
+      expect(entry.id, session.id);
+      expect(entry.method, 'WS');
+      expect(entry.protocol, CaptureProtocol.webSocket);
+      expect(entry.state, CaptureState.success);
+      expect(entry.isSuccess, isTrue);
+      expect(entry.isError, isFalse);
+      expect(entry.headers, {'x-debug': '1'});
+      expect(entry.closedAt, isNotNull);
+      expect(entry.messages, hasLength(3));
+      expect(entry.messages[0].direction, CaptureMessageDirection.outbound);
+      expect(entry.messages[0].type, CaptureMessageType.message);
+      expect(entry.messages[1].direction, CaptureMessageDirection.inbound);
+      expect(entry.messages[2].type, CaptureMessageType.close);
+      expect(entry.messages[2].data, {'code': 1000, 'reason': 'normal'});
+    },
+  );
 
   test('store records sse events and failures', () {
     final store = CaptureStore(enabled: true);
@@ -115,6 +120,20 @@ void main() {
     expect(entry.messages, hasLength(2));
     expect(entry.messages.first.type, CaptureMessageType.event);
     expect(entry.messages.last.type, CaptureMessageType.error);
+  });
+
+  test('open stream session counts as success before it closes', () {
+    final store = CaptureStore(enabled: true);
+    store.startStreamCapture(
+      protocol: CaptureProtocol.sse,
+      url: 'https://example.com/events',
+    );
+
+    final stats = store.stats;
+    expect(store.entries.single.state, CaptureState.success);
+    expect(store.entries.single.isSuccess, isTrue);
+    expect(stats.success, 1);
+    expect(stats.pending, 0);
   });
 
   test('stream session is no-op when capture is disabled', () {
@@ -156,6 +175,79 @@ void main() {
     session.fail('late error');
 
     expect(store.entries, isEmpty);
+  });
+
+  test(
+    'stream messages are throttled while close still notifies immediately',
+    () async {
+      final store = CaptureStore(
+        enabled: true,
+        streamNotifyInterval: const Duration(milliseconds: 40),
+      );
+      var notifications = 0;
+      store.addListener(() => notifications += 1);
+
+      final session = store.startStreamCapture(
+        protocol: CaptureProtocol.webSocket,
+        url: 'wss://example.com/socket',
+      );
+      final afterStart = notifications;
+
+      session.addInbound('first');
+      session.addInbound('second');
+
+      expect(store.entries.single.messages, hasLength(2));
+      expect(notifications, afterStart);
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(notifications, afterStart + 1);
+
+      session.close();
+
+      expect(store.entries.single.messages, hasLength(3));
+      expect(notifications, afterStart + 2);
+    },
+  );
+
+  test('zero stream notify interval refreshes every message immediately', () {
+    final store = CaptureStore(
+      enabled: true,
+      streamNotifyInterval: Duration.zero,
+    );
+    var notifications = 0;
+    store.addListener(() => notifications += 1);
+
+    final session = store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/socket',
+    );
+    final afterStart = notifications;
+
+    session.addInbound('first');
+    session.addInbound('second');
+
+    expect(store.entries.single.messages, hasLength(2));
+    expect(notifications, afterStart + 2);
+  });
+
+  test('controller passes stream notify interval to owned store', () {
+    final controller = DioCaptureViewerController.init(
+      enabled: true,
+      streamNotifyInterval: Duration.zero,
+    );
+    var notifications = 0;
+    controller.store.addListener(() => notifications += 1);
+
+    final session = controller.store.startStreamCapture(
+      protocol: CaptureProtocol.sse,
+      url: 'https://example.com/events',
+    );
+    final afterStart = notifications;
+
+    session.addEvent('first');
+
+    expect(notifications, afterStart + 1);
   });
 
   test('cleanup preserves open streams and removes http entries first', () {
@@ -206,7 +298,7 @@ void main() {
 
     expect(store.entries, hasLength(25));
     expect(
-      store.entries.every((entry) => entry.state == CaptureState.open),
+      store.entries.every((entry) => entry.state == CaptureState.success),
       isTrue,
     );
   });
@@ -236,7 +328,10 @@ void main() {
     expect(ids, isNot(contains(closedSession.id)));
     expect(store.entries, hasLength(20));
     expect(
-      store.entries.where((entry) => entry.state == CaptureState.open),
+      store.entries.where(
+        (entry) =>
+            entry.state == CaptureState.success && entry.closedAt == null,
+      ),
       hasLength(20),
     );
   });
@@ -282,6 +377,52 @@ void main() {
 
     expect(store.entries.single.headers?['Authorization'], '<redacted>');
   });
+
+  test(
+    'interceptor summarizes uploaded files instead of showing file content',
+    () async {
+      final store = CaptureStore(enabled: true);
+      final dio = Dio()
+        ..interceptors.add(CaptureInterceptor(store))
+        ..httpClientAdapter = _FakeAdapter(ResponseBody.fromString('{}', 200));
+      final formData = FormData.fromMap({
+        'avatar': MultipartFile.fromBytes(
+          [1, 2, 3, 4],
+          filename: 'avatar.png',
+          contentType: DioMediaType('image', 'png'),
+        ),
+      });
+
+      await dio.post<dynamic>('https://example.com/upload', data: formData);
+
+      final requestData = store.entries.single.requestData as Map;
+      final files = requestData['files'] as List;
+      expect(files.single['content'], '[avatar.png, image/png, 4B]');
+      expect(files.single, isNot(containsPair('bytes', anything)));
+    },
+  );
+
+  test(
+    'interceptor summarizes media responses instead of showing file content',
+    () async {
+      final store = CaptureStore(enabled: true);
+      final dio = Dio()
+        ..interceptors.add(CaptureInterceptor(store))
+        ..httpClientAdapter = _FakeAdapter(
+          ResponseBody.fromBytes(
+            [1, 2, 3, 4, 5],
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['image/png'],
+            },
+          ),
+        );
+
+      await dio.get<dynamic>('https://example.com/avatar.png');
+
+      expect(store.entries.single.responseData, '[image/png, 5B]');
+    },
+  );
 }
 
 class _FakeAdapter implements HttpClientAdapter {

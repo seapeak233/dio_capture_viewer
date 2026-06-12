@@ -455,67 +455,89 @@ class _MiniPanelContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = CaptureTheme(context);
 
-    return Row(
-      children: [
-        Container(
-          width: 6,
-          decoration: BoxDecoration(
-            color: statusColor,
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(8),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.textPrimary,
-                  fontWeight: FontWeight.w700,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 96) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: 6,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(8),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                'OK $success  ERR $error',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.textMuted,
+            ),
+          );
+        }
+
+        return ClipRect(
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'OK $success  ERR $error',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onExpand,
+                child: const MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(Icons.open_in_full, size: 16),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onClose,
+                child: const MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(Icons.close, size: 16),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onExpand,
-          child: const MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.open_in_full, size: 16),
-            ),
-          ),
-        ),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onClose,
-          child: const MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.close, size: 16),
-            ),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -1355,15 +1377,66 @@ class _PayloadTab extends StatelessWidget {
   }
 }
 
-class _MessagesTab extends StatelessWidget {
+class _MessagesTab extends StatefulWidget {
   const _MessagesTab({required this.messages});
 
   final List<CaptureMessage> messages;
 
   @override
+  State<_MessagesTab> createState() => _MessagesTabState();
+}
+
+class _MessagesTabState extends State<_MessagesTab> {
+  late final ScrollController _scrollController;
+  int _lastMessageCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _lastMessageCount = widget.messages.length;
+    if (_lastMessageCount > 0) {
+      _scrollToBottom(animated: false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MessagesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.messages.length > _lastMessageCount) {
+      _scrollToBottom(animated: true);
+    }
+    _lastMessageCount = widget.messages.length;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom({required bool animated}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      final target = _scrollController.position.maxScrollExtent;
+      if (animated) {
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+        return;
+      }
+      _scrollController.jumpTo(target);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = CaptureTheme(context);
-    if (messages.isEmpty) {
+    if (widget.messages.isEmpty) {
       return Center(
         child: Text(
           'No messages',
@@ -1373,18 +1446,92 @@ class _MessagesTab extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: messages.length,
-      separatorBuilder: (context, _) => const SizedBox(height: 20),
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      itemCount: widget.messages.length,
+      separatorBuilder: (context, _) =>
+          Divider(height: 1, color: theme.borderSubtle),
       itemBuilder: (context, index) {
-        final message = messages[index];
-        final title = [
-          _timeText(message.timestamp),
-          _messageDirectionText(message.direction),
-          message.label ?? _messageTypeText(message.type),
-        ].join('  ');
-        return _PayloadView(title: title, data: message.data);
+        return _MessageRow(message: widget.messages[index]);
       },
+    );
+  }
+}
+
+class _MessageRow extends StatelessWidget {
+  const _MessageRow({required this.message});
+
+  final CaptureMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = CaptureTheme(context);
+    final direction = _messageDirectionText(message.direction);
+    final title = message.label ?? _messageTypeText(message.type);
+    final payload = _payloadText(message.data);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                _timeText(message.timestamp),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.textMuted,
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                direction,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: _messageDirectionColor(theme, message.direction),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.textPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Copy',
+                onPressed: () => _copyText(context, payload),
+                icon: const Icon(Icons.copy, size: 14),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 28,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          SelectableText(
+            payload,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.textBody,
+              fontSize: 11,
+              fontFamily: 'monospace',
+              height: 1.25,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1602,8 +1749,9 @@ Color _statusColor(BuildContext context, CaptureEntry entry) {
   final theme = CaptureTheme(context);
   if (entry.protocol != CaptureProtocol.http) {
     return switch (entry.state) {
-      CaptureState.open => theme.info,
-      CaptureState.closed || CaptureState.success => theme.success,
+      CaptureState.open ||
+      CaptureState.closed ||
+      CaptureState.success => theme.success,
       CaptureState.error => theme.error,
       CaptureState.pending => theme.warning,
     };
@@ -1626,7 +1774,7 @@ String _statusText(CaptureEntry entry) {
       CaptureState.open => 'Open',
       CaptureState.closed => 'Closed',
       CaptureState.error => 'Error',
-      CaptureState.success => 'Success',
+      CaptureState.success => entry.closedAt == null ? 'Connected' : 'Closed',
       CaptureState.pending => 'Pending',
     };
   }
@@ -1656,6 +1804,17 @@ String _messageDirectionText(CaptureMessageDirection direction) {
     CaptureMessageDirection.inbound => 'IN',
     CaptureMessageDirection.outbound => 'OUT',
     CaptureMessageDirection.internal => 'SYS',
+  };
+}
+
+Color _messageDirectionColor(
+  CaptureTheme theme,
+  CaptureMessageDirection direction,
+) {
+  return switch (direction) {
+    CaptureMessageDirection.inbound => theme.success,
+    CaptureMessageDirection.outbound => theme.info,
+    CaptureMessageDirection.internal => theme.textMuted,
   };
 }
 

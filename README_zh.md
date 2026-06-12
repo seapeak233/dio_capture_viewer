@@ -4,16 +4,18 @@
 
 [English README](README.md)
 
-一个用于 Flutter 应用的轻量级应用内请求抓包查看器，适用于使用 Dio 的项目。
+一个用于 Flutter 应用的轻量级应用内网络抓包查看器，适用于使用 Dio 的项目。
 
-它添加一个 Dio interceptor，并提供一个应用内悬浮 Material UI 面板，用于查看请求头、查询参数、请求体、响应内容、错误、状态码和请求耗时。
+它添加一个 Dio interceptor，并提供一个应用内悬浮 Material UI 面板，用于查看请求头、查询参数、请求体、响应内容、错误、状态码、请求耗时、SSE 事件和 WebSocket 消息。
 
 ## 功能特性
 
 - 可拖拽悬浮查看器，支持迷你、贴边和全屏模式。
 - Dio interceptor 支持捕获请求、响应、错误、耗时和载荷内容。
+- 支持 HTTP/Dio、手动上报的 SSE，以及手动上报的 WebSocket 会话。
 - 自动脱敏 authorization、cookie 和 token 类请求头。
 - 支持请求列表过滤和载荷复制操作。
+- 图片、视频、音频、PDF、压缩包、二进制附件等文件类内容会显示为带格式和大小的占位符，不直接渲染原始内容。
 - 提供设置入口回调和可选持久化桥接。
 
 ## 预览
@@ -93,9 +95,13 @@ final maxCacheSize = captureController.store.maxCacheSize;
 
 这个包不导出设置页。它只提供设置入口回调、悬浮查看器模式、capture store 和 Dio interceptor。
 
-## SSE 和 WebSocket 抓包
+## 高级配置
+
+### SSE 和 WebSocket 抓包
 
 SSE 和 WebSocket 抓包是手动上报的，不会给本库增加额外依赖。你只需要创建一个 stream session，然后把业务里已有客户端的入站、出站、关闭和错误事件上报给它。
+
+stream message 的 UI 刷新默认会按 2 秒节流。可以给 `DioCaptureViewerController.init` 或 `CaptureStore` 传 `streamNotifyInterval: Duration.zero`，让每条 message 都立即刷新。
 
 ```dart
 final socketCapture = captureController.store.startStreamCapture(
@@ -134,6 +140,14 @@ eventStream.listen(
 ```
 
 如果用户手动删除某个 stream 记录，或者清空全部记录，旧 session 后续再上报的数据会被忽略，不会重新出现在列表里。自动缓存清理也会保护未断开的 SSE/WebSocket，优先清理普通 HTTP 请求和已经断开的 stream。
+
+### 文件载荷展示
+
+图片、视频、音频、PDF、压缩包、`application/octet-stream` 响应和上传文件不会在查看器里直接展示原始内容，而是显示为占位符，例如 `[avatar.png, image/png, 24.0KB]` 或 `[video/mp4, 2.4MB]`。
+
+## Future
+
+下个版本计划支持附件导出，方便在需要时把抓到的文件类载荷保存到查看器之外。
 
 ## 注意事项
 

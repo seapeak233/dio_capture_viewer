@@ -20,6 +20,7 @@ class DioCaptureViewerController {
     bool enabled = false,
     bool showPanel = false,
     int maxCacheSize = CaptureStore.defaultMaxCacheSize,
+    Duration streamNotifyInterval = CaptureStore.defaultStreamNotifyInterval,
     this.navigatorKey,
     this.label = 'Dio Capture',
     this.host,
@@ -36,6 +37,7 @@ class DioCaptureViewerController {
              preferences: preferences,
              enabled: enabled,
              maxCacheSize: maxCacheSize,
+             streamNotifyInterval: streamNotifyInterval,
            ) {
     if (showPanel) {
       this.store.showPanel();
@@ -47,6 +49,7 @@ class DioCaptureViewerController {
     bool enabled = false,
     bool showPanel = false,
     int maxCacheSize = CaptureStore.defaultMaxCacheSize,
+    Duration streamNotifyInterval = CaptureStore.defaultStreamNotifyInterval,
     GlobalKey<NavigatorState>? navigatorKey,
     String label = 'Dio Capture',
     String? host,
@@ -59,6 +62,7 @@ class DioCaptureViewerController {
       enabled: enabled,
       showPanel: showPanel,
       maxCacheSize: maxCacheSize,
+      streamNotifyInterval: streamNotifyInterval,
       navigatorKey: navigatorKey,
       label: label,
       host: host,

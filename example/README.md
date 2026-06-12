@@ -1,17 +1,16 @@
-# example
+# dio_capture_viewer example
 
-A new Flutter project.
+This Flutter app demonstrates `dio_capture_viewer` with local mock data.
 
-## Getting Started
+The page has three request groups:
 
-This project is a starting point for a Flutter application.
+- Real requests to JSONPlaceholder.
+- Mock HTTP requests through an in-app `HttpClientAdapter`.
+- Mock SSE and WebSocket sessions that emit 10 different messages, one every
+  3 seconds, with normal-close and error-close examples.
 
-A few resources to get you started if this is your first Flutter project:
+Run it with:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+flutter run
+```

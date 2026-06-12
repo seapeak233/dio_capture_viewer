@@ -4,18 +4,23 @@
 
 [中文文档](README_zh.md)
 
-A lightweight in-app request capture viewer for Flutter apps that use Dio.
+A lightweight in-app network capture viewer for Flutter apps that use Dio.
 
 It adds one Dio interceptor and a floating Material UI panel where you can
 inspect request headers, query parameters, request bodies, response payloads,
-errors, status codes, and request durations.
+errors, status codes, request durations, SSE events, and WebSocket messages.
 
 ## Features
 
 - Floating draggable viewer with compact, docked, and full-screen modes.
 - Dio interceptor for request, response, error, duration, and payload capture.
+- Protocol support for HTTP/Dio, manually reported SSE, and manually reported
+  WebSocket sessions.
 - Header redaction for authorization, cookies, and token-like fields.
 - Filterable request list and copy actions for payloads.
+- File-like payloads such as images, videos, audio, PDFs, archives, and binary
+  attachments are summarized as placeholders with format and size instead of
+  rendering raw content.
 - Settings entry callback and optional persistence bridge.
 
 ## Preview
@@ -102,11 +107,17 @@ pass it into `CaptureStore(preferences: yourPreferences)`, then call
 The package does not export a settings page. It only provides the setting entry
 callback, the floating viewer modes, the capture store, and the Dio interceptor.
 
-## SSE and WebSocket capture
+## Advanced Configuration
+
+### SSE and WebSocket capture
 
 SSE and WebSocket capture is manual and dependency-free. Create a stream
 session, then report inbound, outbound, close, and error events from whichever
 client your app already uses.
+
+Stream message UI refreshes are throttled to 2 seconds by default. Pass
+`streamNotifyInterval: Duration.zero` to `DioCaptureViewerController.init` or
+`CaptureStore` to refresh immediately on every message.
 
 ```dart
 final socketCapture = captureController.store.startStreamCapture(
@@ -148,6 +159,18 @@ If a captured stream entry is manually deleted or all entries are cleared,
 updates from the old session are ignored. Open SSE/WebSocket entries are also
 protected from automatic cache cleanup; ordinary HTTP entries and closed streams
 are removed first when the cache exceeds `maxCacheSize`.
+
+### File payload display
+
+Images, videos, audio files, PDFs, archives, `application/octet-stream`
+responses, and uploaded files are not displayed as raw content in the viewer.
+They are shown as placeholders such as `[avatar.png, image/png, 24.0KB]` or
+`[video/mp4, 2.4MB]`.
+
+## Future
+
+The next version plans to add attachment export so captured file-like payloads
+can be saved outside the viewer when needed.
 
 ## Notes
 
