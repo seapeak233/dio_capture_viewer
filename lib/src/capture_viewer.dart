@@ -292,7 +292,9 @@ class _CompactPanelState extends State<_CompactPanel> {
       final shouldClose = await closeHandler(actionContext, store);
       if (shouldClose) {
         store.hidePanel();
-        _showToast(null, widget.toast, 'Capture viewer hidden');
+        if (context.mounted) {
+          _showToast(context, widget.toast, 'Capture viewer hidden');
+        }
       }
       return;
     }
@@ -320,7 +322,9 @@ class _CompactPanelState extends State<_CompactPanel> {
     );
     if (shouldClose == true) {
       store.hidePanel();
-      _showToast(null, widget.toast, 'Capture viewer hidden');
+      if (context.mounted) {
+        _showToast(context, widget.toast, 'Capture viewer hidden');
+      }
     }
   }
 
@@ -1783,7 +1787,7 @@ void _copyText(BuildContext context, String text, CaptureViewerToast? toast) {
 }
 
 void _showToast(
-  BuildContext? context,
+  BuildContext context,
   CaptureViewerToast? toast,
   String message,
 ) {

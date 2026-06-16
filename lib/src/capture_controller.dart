@@ -11,7 +11,8 @@ typedef CaptureViewerAction =
 typedef CaptureViewerCloseHandler =
     FutureOr<bool> Function(BuildContext context, CaptureStore store);
 
-typedef CaptureViewerToast = void Function(BuildContext context, String message);
+typedef CaptureViewerToast =
+    void Function(BuildContext context, String message);
 
 /// One object that owns the capture store, viewer labels, navigation context,
 /// and optional viewer button callbacks.
