@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'capture_controller.dart';
+import 'curl_command_builder.dart';
 import 'capture_entry.dart';
 import 'capture_store.dart';
 import 'capture_theme.dart';
@@ -1270,10 +1271,24 @@ class _OverviewTab extends StatelessWidget {
             color: theme.surface,
             border: Border(top: BorderSide(color: theme.borderSubtle)),
           ),
-          child: FilledButton.icon(
-            onPressed: () => _copyAllData(context, entry),
-            icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copy All'),
+          child: Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _copyAllData(context, entry),
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Copy All'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _copyCurlData(context, entry),
+                  icon: const Icon(Icons.terminal, size: 16),
+                  label: const Text('Copy To Curl'),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1699,6 +1714,10 @@ void _copyAllData(BuildContext context, CaptureEntry entry) {
   }
 
   _copyText(context, buffer.toString());
+}
+
+void _copyCurlData(BuildContext context, CaptureEntry entry) {
+  _copyText(context, buildCurlCommand(entry));
 }
 
 void _copyText(BuildContext context, String text) {

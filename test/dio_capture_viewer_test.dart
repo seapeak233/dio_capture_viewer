@@ -49,6 +49,73 @@ void main() {
     expect(updated.responseSize, greaterThan(0));
   });
 
+  test('builds curl command for json http request', () {
+    final entry = CaptureEntry(
+      id: 'http-curl',
+      method: 'POST',
+      url: 'https://example.com/users',
+      headers: {'Authorization': '<redacted>', 'content-length': '42'},
+      requestData: {'name': 'Felix', 'active': true},
+      queryParameters: {'debug': true},
+      timestamp: DateTime(2026),
+    );
+
+    final command = buildCurlCommand(entry);
+
+    expect(command, startsWith('curl \\\n'));
+    expect(command, contains('-X \\\n  POST'));
+    expect(command, contains("-H \\\n  'Authorization: <redacted>'"));
+    expect(command, contains("-H \\\n  'Content-Type: application/json'"));
+    expect(
+      command,
+      contains("--data-raw \\\n  '{\"name\":\"Felix\",\"active\":true}'"),
+    );
+    expect(command, contains('https://example.com/users?debug=true'));
+    expect(command, isNot(contains('content-length')));
+  });
+
+  test('builds curl command for sse request', () {
+    final entry = CaptureEntry(
+      id: 'sse-curl',
+      method: 'SSE',
+      url: 'https://example.com/events',
+      protocol: CaptureProtocol.sse,
+      headers: {'Cache-Control': 'no-cache'},
+      timestamp: DateTime(2026),
+    );
+
+    final command = buildCurlCommand(entry);
+
+    expect(command, startsWith('curl \\\n  -N'));
+    expect(command, isNot(contains('-X')));
+    expect(command, contains("-H \\\n  'Accept: text/event-stream'"));
+    expect(command, contains('https://example.com/events'));
+  });
+
+  test('builds curl command for websocket request', () {
+    final entry = CaptureEntry(
+      id: 'ws-curl',
+      method: 'WS',
+      url: 'wss://example.com/socket',
+      protocol: CaptureProtocol.webSocket,
+      headers: {
+        'Authorization': '<redacted>',
+        'Connection': 'Upgrade',
+        'Sec-WebSocket-Key': 'generated',
+      },
+      timestamp: DateTime(2026),
+    );
+
+    final command = buildCurlCommand(entry);
+
+    expect(command, startsWith('curl \\\n  -N'));
+    expect(command, isNot(contains('-X')));
+    expect(command, contains("-H \\\n  'Authorization: <redacted>'"));
+    expect(command, contains('wss://example.com/socket'));
+    expect(command, isNot(contains('Connection: Upgrade')));
+    expect(command, isNot(contains('Sec-WebSocket-Key')));
+  });
+
   test('store keeps newest entries within max cache size', () {
     final store = CaptureStore(enabled: true, maxCacheSize: 20);
 
