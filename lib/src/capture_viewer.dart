@@ -29,6 +29,7 @@ class DioCaptureViewer extends StatelessWidget {
     this.baseUrl,
     this.onSettingsTap,
     this.onCloseTap,
+    this.toast,
     this.actionContext,
     this.confirmClose,
     super.key,
@@ -45,6 +46,7 @@ class DioCaptureViewer extends StatelessWidget {
   final String? baseUrl;
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerCloseHandler? onCloseTap;
+  final CaptureViewerToast? toast;
   final BuildContext? actionContext;
   final bool? confirmClose;
 
@@ -55,6 +57,7 @@ class DioCaptureViewer extends StatelessWidget {
     final effectiveHost = host ?? controller?.host ?? baseUrl;
     final effectiveSettingsTap = onSettingsTap ?? controller?.onSettingsTap;
     final effectiveCloseTap = onCloseTap ?? controller?.onCloseTap;
+    final effectiveToast = toast ?? controller?.toast;
     final effectiveConfirmClose =
         confirmClose ?? controller?.confirmClose ?? true;
 
@@ -75,6 +78,7 @@ class DioCaptureViewer extends StatelessWidget {
                   label: effectiveLabel,
                   host: effectiveHost,
                   onSettingsTap: effectiveSettingsTap,
+                  toast: effectiveToast,
                   actionContext: actionContext,
                 )
               else
@@ -84,6 +88,7 @@ class DioCaptureViewer extends StatelessWidget {
                   label: effectiveLabel,
                   host: effectiveHost,
                   onCloseTap: effectiveCloseTap,
+                  toast: effectiveToast,
                   actionContext: actionContext,
                   confirmClose: effectiveConfirmClose,
                 ),
@@ -110,6 +115,7 @@ class DioCaptureViewerOverlay extends StatelessWidget {
     this.baseUrl,
     this.onSettingsTap,
     this.onCloseTap,
+    this.toast,
     this.confirmClose,
     super.key,
   }) : assert(
@@ -126,6 +132,7 @@ class DioCaptureViewerOverlay extends StatelessWidget {
   final String? baseUrl;
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerCloseHandler? onCloseTap;
+  final CaptureViewerToast? toast;
   final bool? confirmClose;
 
   @override
@@ -144,6 +151,7 @@ class DioCaptureViewerOverlay extends StatelessWidget {
                 baseUrl: baseUrl,
                 onSettingsTap: onSettingsTap,
                 onCloseTap: onCloseTap,
+                toast: toast,
                 actionContext: context,
                 confirmClose: confirmClose,
               ),
@@ -162,6 +170,7 @@ class _CompactPanel extends StatefulWidget {
     required this.label,
     required this.host,
     required this.onCloseTap,
+    required this.toast,
     required this.actionContext,
     required this.confirmClose,
   });
@@ -171,6 +180,7 @@ class _CompactPanel extends StatefulWidget {
   final String label;
   final String? host;
   final CaptureViewerCloseHandler? onCloseTap;
+  final CaptureViewerToast? toast;
   final BuildContext? actionContext;
   final bool confirmClose;
 
@@ -282,11 +292,13 @@ class _CompactPanelState extends State<_CompactPanel> {
       final shouldClose = await closeHandler(actionContext, store);
       if (shouldClose) {
         store.hidePanel();
+        _showToast(null, widget.toast, 'Capture viewer hidden');
       }
       return;
     }
     if (!widget.confirmClose) {
       store.hidePanel();
+      _showToast(context, widget.toast, 'Capture viewer hidden');
       return;
     }
     final shouldClose = await showDialog<bool>(
@@ -308,6 +320,7 @@ class _CompactPanelState extends State<_CompactPanel> {
     );
     if (shouldClose == true) {
       store.hidePanel();
+      _showToast(null, widget.toast, 'Capture viewer hidden');
     }
   }
 
@@ -596,6 +609,7 @@ class _FullPanel extends StatelessWidget {
     required this.label,
     required this.host,
     required this.onSettingsTap,
+    required this.toast,
     required this.actionContext,
   });
 
@@ -604,6 +618,7 @@ class _FullPanel extends StatelessWidget {
   final String label;
   final String? host;
   final CaptureViewerAction? onSettingsTap;
+  final CaptureViewerToast? toast;
   final BuildContext? actionContext;
 
   @override
@@ -647,6 +662,7 @@ class _FullPanel extends StatelessWidget {
                       label: label,
                       host: host,
                       onSettingsTap: onSettingsTap,
+                      toast: toast,
                       controller: controller,
                       actionContext: actionContext,
                     ),
@@ -656,12 +672,15 @@ class _FullPanel extends StatelessWidget {
                               children: [
                                 Expanded(
                                   flex: 2,
-                                  child: _EntryList(store: store),
+                                  child: _EntryList(store: store, toast: toast),
                                 ),
                                 Divider(height: 1, color: theme.borderSubtle),
                                 Expanded(
                                   flex: 3,
-                                  child: _EntryDetails(store: store),
+                                  child: _EntryDetails(
+                                    store: store,
+                                    toast: toast,
+                                  ),
                                 ),
                               ],
                             )
@@ -669,13 +688,18 @@ class _FullPanel extends StatelessWidget {
                               children: [
                                 SizedBox(
                                   width: 380,
-                                  child: _EntryList(store: store),
+                                  child: _EntryList(store: store, toast: toast),
                                 ),
                                 VerticalDivider(
                                   width: 1,
                                   color: theme.borderSubtle,
                                 ),
-                                Expanded(child: _EntryDetails(store: store)),
+                                Expanded(
+                                  child: _EntryDetails(
+                                    store: store,
+                                    toast: toast,
+                                  ),
+                                ),
                               ],
                             ),
                     ),
@@ -697,6 +721,7 @@ class _Header extends StatelessWidget {
     required this.label,
     required this.host,
     required this.onSettingsTap,
+    required this.toast,
     required this.actionContext,
   });
 
@@ -705,6 +730,7 @@ class _Header extends StatelessWidget {
   final String label;
   final String? host;
   final CaptureViewerAction? onSettingsTap;
+  final CaptureViewerToast? toast;
   final BuildContext? actionContext;
 
   @override
@@ -762,7 +788,13 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          _HeaderTextButton(label: 'Clear', onTap: store.clearEntries),
+          _HeaderTextButton(
+            label: 'Clear',
+            onTap: () {
+              store.clearEntries();
+              _showToast(context, toast, 'Capture entries cleared');
+            },
+          ),
           const SizedBox(width: 6),
           if (onSettingsTap != null)
             _HeaderIconButton(
@@ -860,9 +892,10 @@ class _StatText extends StatelessWidget {
 }
 
 class _EntryList extends StatelessWidget {
-  const _EntryList({required this.store});
+  const _EntryList({required this.store, required this.toast});
 
   final CaptureStore store;
+  final CaptureViewerToast? toast;
 
   @override
   Widget build(BuildContext context) {
@@ -921,7 +954,10 @@ class _EntryList extends StatelessWidget {
               ),
               if (store.searchFilter.isNotEmpty)
                 InkWell(
-                  onTap: store.clearSearchFilter,
+                  onTap: () {
+                    store.clearSearchFilter();
+                    _showToast(context, toast, 'Search filter cleared');
+                  },
                   splashColor: Colors.transparent,
                   highlightColor: Colors.transparent,
                   customBorder: const CircleBorder(),
@@ -1100,9 +1136,10 @@ class _MethodChip extends StatelessWidget {
 }
 
 class _EntryDetails extends StatelessWidget {
-  const _EntryDetails({required this.store});
+  const _EntryDetails({required this.store, required this.toast});
 
   final CaptureStore store;
+  final CaptureViewerToast? toast;
 
   @override
   Widget build(BuildContext context) {
@@ -1140,8 +1177,9 @@ class _EntryDetails extends StatelessWidget {
         ),
         Expanded(
           child: switch (store.currentTabIndex) {
-            0 => _OverviewTab(entry: entry),
+            0 => _OverviewTab(entry: entry, toast: toast),
             1 => _PayloadTab(
+              toast: toast,
               sections: [
                 _PayloadSection('Headers', entry.headers),
                 _PayloadSection('Query Parameters', entry.queryParameters),
@@ -1151,12 +1189,13 @@ class _EntryDetails extends StatelessWidget {
             2 =>
               entry.protocol == CaptureProtocol.http
                   ? _PayloadTab(
+                      toast: toast,
                       sections: [
                         _PayloadSection('Response Data', entry.responseData),
                         _PayloadSection('Error Message', entry.errorMessage),
                       ],
                     )
-                  : _MessagesTab(messages: entry.messages),
+                  : _MessagesTab(messages: entry.messages, toast: toast),
             _ => const SizedBox.shrink(),
           },
         ),
@@ -1206,9 +1245,10 @@ class _TabButton extends StatelessWidget {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.entry});
+  const _OverviewTab({required this.entry, required this.toast});
 
   final CaptureEntry entry;
+  final CaptureViewerToast? toast;
 
   @override
   Widget build(BuildContext context) {
@@ -1275,7 +1315,7 @@ class _OverviewTab extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => _copyAllData(context, entry),
+                  onPressed: () => _copyAllData(context, entry, toast),
                   icon: const Icon(Icons.copy, size: 16),
                   label: const Text('Copy All'),
                 ),
@@ -1283,7 +1323,7 @@ class _OverviewTab extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton.tonalIcon(
-                  onPressed: () => _copyCurlData(context, entry),
+                  onPressed: () => _copyCurlData(context, entry, toast),
                   icon: const Icon(Icons.terminal, size: 16),
                   label: const Text('Copy To Curl'),
                 ),
@@ -1356,9 +1396,10 @@ class _PayloadSection {
 }
 
 class _PayloadTab extends StatelessWidget {
-  const _PayloadTab({required this.sections});
+  const _PayloadTab({required this.sections, required this.toast});
 
   final List<_PayloadSection> sections;
+  final CaptureViewerToast? toast;
 
   @override
   Widget build(BuildContext context) {
@@ -1385,6 +1426,7 @@ class _PayloadTab extends StatelessWidget {
         return _PayloadView(
           title: section.title,
           data: section.data,
+          toast: toast,
           initiallyCollapsed: section.title == 'Headers',
         );
       },
@@ -1393,9 +1435,10 @@ class _PayloadTab extends StatelessWidget {
 }
 
 class _MessagesTab extends StatefulWidget {
-  const _MessagesTab({required this.messages});
+  const _MessagesTab({required this.messages, required this.toast});
 
   final List<CaptureMessage> messages;
+  final CaptureViewerToast? toast;
 
   @override
   State<_MessagesTab> createState() => _MessagesTabState();
@@ -1467,16 +1510,20 @@ class _MessagesTabState extends State<_MessagesTab> {
       separatorBuilder: (context, _) =>
           Divider(height: 1, color: theme.borderSubtle),
       itemBuilder: (context, index) {
-        return _MessageRow(message: widget.messages[index]);
+        return _MessageRow(
+          message: widget.messages[index],
+          toast: widget.toast,
+        );
       },
     );
   }
 }
 
 class _MessageRow extends StatelessWidget {
-  const _MessageRow({required this.message});
+  const _MessageRow({required this.message, required this.toast});
 
   final CaptureMessage message;
+  final CaptureViewerToast? toast;
 
   @override
   Widget build(BuildContext context) {
@@ -1524,7 +1571,7 @@ class _MessageRow extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Copy',
-                onPressed: () => _copyText(context, payload),
+                onPressed: () => _copyText(context, payload, toast),
                 icon: const Icon(Icons.copy, size: 14),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
@@ -1555,11 +1602,13 @@ class _PayloadView extends StatefulWidget {
   const _PayloadView({
     required this.title,
     required this.data,
+    required this.toast,
     this.initiallyCollapsed = false,
   });
 
   final String title;
   final Object? data;
+  final CaptureViewerToast? toast;
   final bool initiallyCollapsed;
 
   @override
@@ -1612,7 +1661,7 @@ class _PayloadViewState extends State<_PayloadView> {
             ],
             IconButton(
               tooltip: 'Copy',
-              onPressed: () => _copyText(context, payloadText),
+              onPressed: () => _copyText(context, payloadText, widget.toast),
               icon: const Icon(Icons.copy, size: 16),
               visualDensity: VisualDensity.compact,
             ),
@@ -1668,7 +1717,11 @@ class _PayloadHeaderAction extends StatelessWidget {
   }
 }
 
-void _copyAllData(BuildContext context, CaptureEntry entry) {
+void _copyAllData(
+  BuildContext context,
+  CaptureEntry entry,
+  CaptureViewerToast? toast,
+) {
   final buffer = StringBuffer()
     ..writeln('Method: ${entry.method}')
     ..writeln('URL: ${entry.url}')
@@ -1713,18 +1766,28 @@ void _copyAllData(BuildContext context, CaptureEntry entry) {
     );
   }
 
-  _copyText(context, buffer.toString());
+  _copyText(context, buffer.toString(), toast);
 }
 
-void _copyCurlData(BuildContext context, CaptureEntry entry) {
-  _copyText(context, buildCurlCommand(entry));
+void _copyCurlData(
+  BuildContext context,
+  CaptureEntry entry,
+  CaptureViewerToast? toast,
+) {
+  _copyText(context, buildCurlCommand(entry), toast);
 }
 
-void _copyText(BuildContext context, String text) {
+void _copyText(BuildContext context, String text, CaptureViewerToast? toast) {
   Clipboard.setData(ClipboardData(text: text));
-  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-    const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
-  );
+  _showToast(context, toast, 'Copied');
+}
+
+void _showToast(
+  BuildContext? context,
+  CaptureViewerToast? toast,
+  String message,
+) {
+  toast?.call(context, message);
 }
 
 String _payloadText(Object? data) {

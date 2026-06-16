@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:dio_capture_viewer/dio_capture_viewer.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import 'capture_settings_page.dart';
 
@@ -29,6 +30,13 @@ final captureController = DioCaptureViewerController.init(
     );
   },
   onCloseTap: _confirmCloseViewer,
+  toast: (_, message) {
+    Fluttertoast.showToast(
+      msg: message,
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+    );
+  },
 );
 
 final dio = Dio(BaseOptions(baseUrl: apiHost, responseType: ResponseType.json))

@@ -11,6 +11,8 @@ typedef CaptureViewerAction =
 typedef CaptureViewerCloseHandler =
     FutureOr<bool> Function(BuildContext context, CaptureStore store);
 
+typedef CaptureViewerToast = void Function(BuildContext context, String message);
+
 /// One object that owns the capture store, viewer labels, navigation context,
 /// and optional viewer button callbacks.
 class DioCaptureViewerController {
@@ -26,6 +28,7 @@ class DioCaptureViewerController {
     this.host,
     this.onSettingsTap,
     this.onCloseTap,
+    this.toast,
     this.confirmClose = true,
   }) : assert(
          store == null || preferences == null,
@@ -55,6 +58,7 @@ class DioCaptureViewerController {
     String? host,
     CaptureViewerAction? onSettingsTap,
     CaptureViewerCloseHandler? onCloseTap,
+    CaptureViewerToast? toast,
     bool confirmClose = true,
   }) {
     return DioCaptureViewerController(
@@ -68,6 +72,7 @@ class DioCaptureViewerController {
       host: host,
       onSettingsTap: onSettingsTap,
       onCloseTap: onCloseTap,
+      toast: toast,
       confirmClose: confirmClose,
     );
   }
@@ -93,6 +98,11 @@ class DioCaptureViewerController {
   ///
   /// Return `true` to hide the viewer. Return `false` to keep it visible.
   final CaptureViewerCloseHandler? onCloseTap;
+
+  /// Optional callback used by viewer actions to show a toast.
+  ///
+  /// No built-in toast is shown when this is null.
+  final CaptureViewerToast? toast;
 
   /// Whether the built-in close confirmation should be used when
   /// [onCloseTap] is not provided.

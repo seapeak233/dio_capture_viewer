@@ -55,7 +55,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.1.0"
   dio_web_adapter:
     dependency: transitive
     description:
@@ -90,6 +90,19 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_web_plugins:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
+  fluttertoast:
+    dependency: "direct main"
+    description:
+      name: fluttertoast
+      sha256: "7903c9d5339173497bfecbc23bc4212f5a87e0edfac2e1693fb74465ea67da7e"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "9.1.0"
   http_parser:
     dependency: transitive
     description:
@@ -257,4 +270,4 @@ packages:
     version: "1.1.1"
 sdks:
   dart: ">=3.11.5 <4.0.0"
-  flutter: ">=3.29.0"
+  flutter: ">=3.41.0"
