@@ -22,9 +22,11 @@
 ## 预览
 
 <p>
-  <img src="assets/screenshots/home-docked-viewer.jpg" width="260" alt="首页贴边抓包查看器">
-  <img src="assets/screenshots/settings-mini-viewer.jpg" width="260" alt="设置页迷你抓包查看器">
-  <img src="assets/screenshots/settings-docked-viewer.gif" width="260" alt="设置页抓包查看器贴边动画">
+  <img src="assets/screenshots/preview1.jpg" width="220" alt="抓包查看器预览 1">
+  <img src="assets/screenshots/preview2.jpg" width="220" alt="抓包查看器预览 2">
+  <img src="assets/screenshots/preview3.jpg" width="220" alt="抓包查看器预览 3">
+  <img src="assets/screenshots/preview4.jpg" width="220" alt="抓包查看器预览 4">
+  <img src="assets/screenshots/preview5.gif" width="220" alt="抓包查看器动画预览">
 </p>
 
 ## 使用方式

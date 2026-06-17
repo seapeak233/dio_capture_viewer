@@ -28,9 +28,11 @@ errors, status codes, request durations, SSE events, and WebSocket messages.
 ## Preview
 
 <p>
-  <img src="assets/screenshots/home-docked-viewer.jpg" width="260" alt="Home page with docked capture viewer">
-  <img src="assets/screenshots/settings-mini-viewer.jpg" width="260" alt="Settings page with mini capture viewer">
-  <img src="assets/screenshots/settings-docked-viewer.gif" width="260" alt="Capture viewer docking animation on settings page">
+  <img src="assets/screenshots/preview1.jpg" width="220" alt="Capture viewer preview 1">
+  <img src="assets/screenshots/preview2.jpg" width="220" alt="Capture viewer preview 2">
+  <img src="assets/screenshots/preview3.jpg" width="220" alt="Capture viewer preview 3">
+  <img src="assets/screenshots/preview4.jpg" width="220" alt="Capture viewer preview 4">
+  <img src="assets/screenshots/preview5.gif" width="220" alt="Capture viewer preview animation">
 </p>
 
 ## Usage
