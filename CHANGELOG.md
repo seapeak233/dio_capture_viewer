@@ -1,3 +1,13 @@
+## 0.1.1
+
+* Added protocol-aware `Copy To Curl` generation for HTTP, SSE, and WebSocket
+  captures.
+* Updated the Overview footer to show separate `Copy All` and `Copy To Curl`
+  actions.
+* Added an optional `toast` callback for viewer action feedback. It is not
+  required; when omitted, no built-in toast or snackbar is shown.
+* Added example app wiring for third-party toast feedback with `fluttertoast`.
+
 ## 0.1.0
 
 * Added dependency-free manual capture support for Server-Sent Events (SSE)

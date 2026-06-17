@@ -14,7 +14,8 @@
 - Dio interceptor 支持捕获请求、响应、错误、耗时和载荷内容。
 - 支持 HTTP/Dio、手动上报的 SSE，以及手动上报的 WebSocket 会话。
 - 自动脱敏 authorization、cookie 和 token 类请求头。
-- 支持请求列表过滤和载荷复制操作。
+- 支持请求列表过滤、载荷复制，以及按协议生成 `Copy To Curl` 命令。
+- 支持可选 toast 回调，用于复制、清空和隐藏等查看器操作提示。
 - 图片、视频、音频、PDF、压缩包、二进制附件等文件类内容会显示为带格式和大小的占位符，不直接渲染原始内容。
 - 提供设置入口回调和可选持久化桥接。
 
@@ -54,6 +55,10 @@ final captureController = DioCaptureViewerController.init(
   onCloseTap: (context, store) async {
     return await confirmHideCaptureViewer(context);
   },
+  // 可选。不需要操作提示时可以不传。
+  toast: (context, message) {
+    showYourToast(message);
+  },
 );
 
 final dio = Dio(BaseOptions(baseUrl: apiHost))
@@ -80,6 +85,8 @@ class App extends StatelessWidget {
 ```
 
 如果不需要从查看器按钮打开页面，`navigatorKey` 可以不传。当你使用 `onSettingsTap`，或在 `onCloseTap` 中显示弹窗时，需要把同一个 key 同时传给 `DioCaptureViewerController` 和 `MaterialApp`。
+
+`toast` 是可选项。不传时，查看器不会内置弹 toast 或 snackbar。传入后，复制、复制 curl、清空、清除搜索和隐藏查看器等操作会调用它并传入一段简短提示文案。
 
 `CaptureStore` 暴露了一些设置能力，你可以放到自己的抓包设置页中：
 
@@ -140,6 +147,14 @@ eventStream.listen(
 ```
 
 如果用户手动删除某个 stream 记录，或者清空全部记录，旧 session 后续再上报的数据会被忽略，不会重新出现在列表里。自动缓存清理也会保护未断开的 SSE/WebSocket，优先清理普通 HTTP 请求和已经断开的 stream。
+
+### 复制为 curl
+
+Overview 页签底部提供 `Copy All` 和 `Copy To Curl` 两个操作。`Copy To Curl` 会根据捕获到的 method、URL、headers、query parameters 和 request body 生成可直接粘贴到 shell 的 curl 命令。
+
+HTTP 请求会用 `--data-raw` 带上请求体；如果载荷像 JSON，且原请求没有 `Content-Type`，会自动补 `Content-Type: application/json`。捕获到的 `FormData` 字段会转成 `--form-string`，文件字段会以 `field=@avatar.png` 这类占位形式输出。
+
+SSE 会生成带 `-N` 和 `Accept: text/event-stream` 的流式 HTTP curl 命令。WebSocket 会生成 `ws://` 或 `wss://` 的 curl 命令，并带上捕获到的业务 header；客户端自动生成的 WebSocket 握手 hop-by-hop header 会被跳过。
 
 ### 文件载荷展示
 
