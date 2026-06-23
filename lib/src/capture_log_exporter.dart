@@ -75,7 +75,7 @@ Map<String, Object?> _entryToJson(CaptureEntry entry) {
     'type': 'capture',
     'id': entry.id,
     'protocol': entry.protocol.name,
-    'state': entry.state.name,
+    'state': _exportState(entry),
     'method': entry.method,
     'url': entry.url,
     if (uri != null && uri.host.isNotEmpty) 'host': uri.host,
@@ -100,6 +100,26 @@ Map<String, Object?> _entryToJson(CaptureEntry entry) {
     },
     if (entry.messages.isNotEmpty)
       'messages': entry.messages.map(_messageToJson).toList(growable: false),
+  };
+}
+
+String _exportState(CaptureEntry entry) {
+  if (entry.protocol == CaptureProtocol.http) {
+    if (entry.isError) {
+      return 'error';
+    }
+    if (entry.isSuccess || entry.statusCode != null) {
+      return 'success';
+    }
+    return 'pending';
+  }
+
+  return switch (entry.state) {
+    CaptureState.open => 'open',
+    CaptureState.closed => 'closed',
+    CaptureState.error => 'error',
+    CaptureState.success => entry.closedAt == null ? 'open' : 'closed',
+    CaptureState.pending => 'pending',
   };
 }
 

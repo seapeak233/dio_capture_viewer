@@ -152,6 +152,7 @@ void main() {
     expect(metadata['entryCount'], 1);
     expect(capture['type'], 'capture');
     expect(capture['protocol'], 'http');
+    expect(capture['state'], 'success');
     expect(capture['host'], 'example.com');
     expect(capture['path'], '/users');
     expect(capture['query'], 'q=1');
@@ -178,6 +179,7 @@ void main() {
     final firstMessage = messages.first as Map<String, dynamic>;
 
     expect(capture['protocol'], 'webSocket');
+    expect(capture['state'], 'closed');
     expect(messages, hasLength(2));
     expect(firstMessage['direction'], 'outbound');
     expect(firstMessage['type'], 'message');
