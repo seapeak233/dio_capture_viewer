@@ -8,7 +8,9 @@
   trigger or save exports outside the built-in viewer button.
 * Updated the full-screen header layout to show status/actions on the first row
   and host on the second row, without the title.
-* Updated the example app to save exported logs with `file_saver`.
+* Normalized exported log states for clearer HTTP and stream log reading.
+* Updated the example app to save exported logs with `file_saver` and open the
+  latest exported log with `open_filex`.
 
 ## 0.1.1
 
