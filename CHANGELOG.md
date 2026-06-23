@@ -1,3 +1,15 @@
+## 0.2.1
+
+* Added optional `exportHandler` support on the controller and overlay. When it
+  is omitted, the export button is hidden.
+* Added JSON Lines (`.jsonl` / NDJSON) export generation with metadata,
+  request/response payloads, SSE events, and WebSocket messages.
+* Added `CaptureExportFile` and `buildCaptureLogExport` for apps that want to
+  trigger or save exports outside the built-in viewer button.
+* Updated the full-screen header layout to show status/actions on the first row
+  and host on the second row, without the title.
+* Updated the example app to save exported logs with `file_saver`.
+
 ## 0.1.1
 
 * Added protocol-aware `Copy To Curl` generation for HTTP, SSE, and WebSocket

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'capture_controller.dart';
 import 'curl_command_builder.dart';
 import 'capture_entry.dart';
+import 'capture_log_exporter.dart';
 import 'capture_store.dart';
 import 'capture_theme.dart';
 
@@ -30,6 +31,7 @@ class DioCaptureViewer extends StatelessWidget {
     this.onSettingsTap,
     this.onCloseTap,
     this.toast,
+    this.exportHandler,
     this.actionContext,
     this.confirmClose,
     super.key,
@@ -47,6 +49,7 @@ class DioCaptureViewer extends StatelessWidget {
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerCloseHandler? onCloseTap;
   final CaptureViewerToast? toast;
+  final CaptureExportHandler? exportHandler;
   final BuildContext? actionContext;
   final bool? confirmClose;
 
@@ -58,6 +61,7 @@ class DioCaptureViewer extends StatelessWidget {
     final effectiveSettingsTap = onSettingsTap ?? controller?.onSettingsTap;
     final effectiveCloseTap = onCloseTap ?? controller?.onCloseTap;
     final effectiveToast = toast ?? controller?.toast;
+    final effectiveExportHandler = exportHandler ?? controller?.exportHandler;
     final effectiveConfirmClose =
         confirmClose ?? controller?.confirmClose ?? true;
 
@@ -75,10 +79,10 @@ class DioCaptureViewer extends StatelessWidget {
                 _FullPanel(
                   controller: controller,
                   store: effectiveStore,
-                  label: effectiveLabel,
                   host: effectiveHost,
                   onSettingsTap: effectiveSettingsTap,
                   toast: effectiveToast,
+                  exportHandler: effectiveExportHandler,
                   actionContext: actionContext,
                 )
               else
@@ -116,6 +120,7 @@ class DioCaptureViewerOverlay extends StatelessWidget {
     this.onSettingsTap,
     this.onCloseTap,
     this.toast,
+    this.exportHandler,
     this.confirmClose,
     super.key,
   }) : assert(
@@ -133,6 +138,7 @@ class DioCaptureViewerOverlay extends StatelessWidget {
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerCloseHandler? onCloseTap;
   final CaptureViewerToast? toast;
+  final CaptureExportHandler? exportHandler;
   final bool? confirmClose;
 
   @override
@@ -152,6 +158,7 @@ class DioCaptureViewerOverlay extends StatelessWidget {
                 onSettingsTap: onSettingsTap,
                 onCloseTap: onCloseTap,
                 toast: toast,
+                exportHandler: exportHandler,
                 actionContext: context,
                 confirmClose: confirmClose,
               ),
@@ -610,19 +617,19 @@ class _FullPanel extends StatelessWidget {
   const _FullPanel({
     required this.controller,
     required this.store,
-    required this.label,
     required this.host,
     required this.onSettingsTap,
     required this.toast,
+    required this.exportHandler,
     required this.actionContext,
   });
 
   final DioCaptureViewerController? controller;
   final CaptureStore store;
-  final String label;
   final String? host;
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerToast? toast;
+  final CaptureExportHandler? exportHandler;
   final BuildContext? actionContext;
 
   @override
@@ -663,10 +670,10 @@ class _FullPanel extends StatelessWidget {
                   children: [
                     _Header(
                       store: store,
-                      label: label,
                       host: host,
                       onSettingsTap: onSettingsTap,
                       toast: toast,
+                      exportHandler: exportHandler,
                       controller: controller,
                       actionContext: actionContext,
                     ),
@@ -722,20 +729,42 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.controller,
     required this.store,
-    required this.label,
     required this.host,
     required this.onSettingsTap,
     required this.toast,
+    required this.exportHandler,
     required this.actionContext,
   });
 
   final DioCaptureViewerController? controller;
   final CaptureStore store;
-  final String label;
   final String? host;
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerToast? toast;
+  final CaptureExportHandler? exportHandler;
   final BuildContext? actionContext;
+
+  Future<void> _handleExport(BuildContext context) async {
+    final handler = exportHandler;
+    if (handler == null) {
+      return;
+    }
+    final fallbackContext = actionContext ?? context;
+    final targetContext =
+        controller?.actionContext(fallbackContext) ?? fallbackContext;
+    try {
+      await handler.exportStart?.call(targetContext, store);
+      if (!targetContext.mounted) {
+        return;
+      }
+      final file = buildCaptureLogExport(store);
+      await handler.exportEnd(targetContext, store, file);
+    } catch (_) {
+      if (context.mounted) {
+        _showToast(context, toast, 'Export failed');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -747,72 +776,66 @@ class _Header extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.borderSubtle)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        label,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: theme.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _StatText(
-                      label: 'OK',
-                      value: stats.success,
-                      color: theme.success,
-                    ),
-                    const SizedBox(width: 8),
-                    _StatText(
-                      label: 'ERR',
-                      value: stats.error,
-                      color: theme.error,
-                    ),
-                  ],
+          Row(
+            children: [
+              _StatText(
+                label: 'OK',
+                value: stats.success,
+                color: theme.success,
+              ),
+              const SizedBox(width: 8),
+              _StatText(label: 'ERR', value: stats.error, color: theme.error),
+              const Spacer(),
+              _HeaderTextButton(
+                label: 'Clear',
+                onTap: () {
+                  store.clearEntries();
+                  _showToast(context, toast, 'Capture entries cleared');
+                },
+              ),
+              const SizedBox(width: 6),
+              if (exportHandler != null)
+                _HeaderIconButton(
+                  tooltip: 'Export',
+                  onTap: () {
+                    unawaited(_handleExport(context));
+                  },
+                  icon: Icons.file_download_outlined,
                 ),
-                if (host != null)
-                  Text(
-                    host!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.textMuted,
-                    ),
-                  ),
-              ],
-            ),
+              if (onSettingsTap != null)
+                _HeaderIconButton(
+                  tooltip: 'Settings',
+                  onTap: () {
+                    store.showMini();
+                    final fallbackContext = actionContext ?? context;
+                    final targetContext =
+                        controller?.actionContext(fallbackContext) ??
+                        fallbackContext;
+                    onSettingsTap!(targetContext, store);
+                  },
+                  icon: Icons.settings_outlined,
+                ),
+              _HeaderIconButton(
+                tooltip: 'Minimize',
+                onTap: store.toggleMinimized,
+                icon: Icons.minimize,
+              ),
+            ],
           ),
-          _HeaderTextButton(
-            label: 'Clear',
-            onTap: () {
-              store.clearEntries();
-              _showToast(context, toast, 'Capture entries cleared');
-            },
-          ),
-          const SizedBox(width: 6),
-          if (onSettingsTap != null)
-            _HeaderIconButton(
-              onTap: () {
-                store.showMini();
-                final fallbackContext = actionContext ?? context;
-                final targetContext =
-                    controller?.actionContext(fallbackContext) ??
-                    fallbackContext;
-                onSettingsTap!(targetContext, store);
-              },
-              icon: Icons.settings_outlined,
+          if (host != null) ...[
+            const SizedBox(height: 5),
+            Text(
+              host!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.textMuted,
+              ),
             ),
-          _HeaderIconButton(onTap: store.toggleMinimized, icon: Icons.minimize),
+          ],
         ],
       ),
     );
@@ -851,21 +874,29 @@ class _HeaderTextButton extends StatelessWidget {
 }
 
 class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({required this.onTap, required this.icon});
+  const _HeaderIconButton({
+    required this.onTap,
+    required this.icon,
+    required this.tooltip,
+  });
 
   final VoidCallback onTap;
   final IconData icon;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
     final theme = CaptureTheme(context);
-    return InkWell(
-      onTap: onTap,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(icon, size: 18, color: theme.textMuted),
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 18, color: theme.textMuted),
+        ),
       ),
     );
   }

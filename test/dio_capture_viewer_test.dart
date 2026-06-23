@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:dio_capture_viewer/dio_capture_viewer.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,6 +116,72 @@ void main() {
     expect(command, contains('wss://example.com/socket'));
     expect(command, isNot(contains('Connection: Upgrade')));
     expect(command, isNot(contains('Sec-WebSocket-Key')));
+  });
+
+  test('builds json lines export for captured entries', () {
+    final store = CaptureStore(enabled: true);
+    store.addEntry(
+      CaptureEntry(
+        id: 'http-export',
+        method: 'POST',
+        url: 'https://example.com/users?q=1',
+        headers: {'Authorization': '<redacted>'},
+        requestData: {'name': 'Felix'},
+        queryParameters: {'q': 1},
+        statusCode: 201,
+        responseData: {'id': 1},
+        duration: const Duration(milliseconds: 42),
+        timestamp: DateTime.utc(2026, 1, 2, 3, 4, 5),
+      ),
+    );
+
+    final file = buildCaptureLogExport(
+      store,
+      exportedAt: DateTime.utc(2026, 1, 2, 3, 5),
+    );
+    final lines = const LineSplitter().convert(file.content);
+    final metadata = jsonDecode(lines[0]) as Map<String, dynamic>;
+    final capture = jsonDecode(lines[1]) as Map<String, dynamic>;
+    final request = capture['request'] as Map<String, dynamic>;
+    final response = capture['response'] as Map<String, dynamic>;
+
+    expect(file.fileName, 'dio-capture-2026-01-02T03-05-00-000Z.jsonl');
+    expect(file.mimeType, contains('ndjson'));
+    expect(lines, hasLength(2));
+    expect(metadata['schema'], 'dio_capture_viewer.jsonl.v1');
+    expect(metadata['entryCount'], 1);
+    expect(capture['type'], 'capture');
+    expect(capture['protocol'], 'http');
+    expect(capture['host'], 'example.com');
+    expect(capture['path'], '/users');
+    expect(capture['query'], 'q=1');
+    expect(capture['statusCode'], 201);
+    expect(capture['durationMs'], 42);
+    expect(request['headers'], {'Authorization': '<redacted>'});
+    expect(request['body'], {'name': 'Felix'});
+    expect(response['body'], {'id': 1});
+  });
+
+  test('json lines export includes stream messages', () {
+    final store = CaptureStore(enabled: true);
+    final session = store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/socket',
+    );
+    session.addOutbound({'type': 'ping'}, label: 'send');
+    session.close(code: 1000);
+
+    final file = buildCaptureLogExport(store, exportedAt: DateTime.utc(2026));
+    final lines = const LineSplitter().convert(file.content);
+    final capture = jsonDecode(lines[1]) as Map<String, dynamic>;
+    final messages = capture['messages'] as List<dynamic>;
+    final firstMessage = messages.first as Map<String, dynamic>;
+
+    expect(capture['protocol'], 'webSocket');
+    expect(messages, hasLength(2));
+    expect(firstMessage['direction'], 'outbound');
+    expect(firstMessage['type'], 'message');
+    expect(firstMessage['label'], 'send');
   });
 
   test('store keeps newest entries within max cache size', () {

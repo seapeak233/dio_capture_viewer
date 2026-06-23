@@ -87,6 +87,7 @@ class CaptureStore extends ChangeNotifier {
   final List<CaptureEntry> _entries = <CaptureEntry>[];
   final Set<String> _deletedEntryIds = <String>{};
   Timer? _streamNotifyTimer;
+  int _streamSequence = 0;
 
   bool _isEnabled;
   bool _isPanelVisible = false;
@@ -545,7 +546,8 @@ class CaptureStore extends ChangeNotifier {
   }
 
   String _nextStreamId() {
-    return 'stream-${DateTime.now().microsecondsSinceEpoch}';
+    _streamSequence += 1;
+    return 'stream-${DateTime.now().microsecondsSinceEpoch}-$_streamSequence';
   }
 
   String _streamMethod(CaptureProtocol protocol) {

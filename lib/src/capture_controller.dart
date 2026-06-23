@@ -3,6 +3,7 @@ import 'dart:async' show FutureOr;
 import 'package:flutter/material.dart';
 
 import 'capture_interceptor.dart';
+import 'capture_log_exporter.dart';
 import 'capture_store.dart';
 
 typedef CaptureViewerAction =
@@ -13,6 +14,27 @@ typedef CaptureViewerCloseHandler =
 
 typedef CaptureViewerToast =
     void Function(BuildContext context, String message);
+
+typedef CaptureExportStart =
+    FutureOr<void> Function(BuildContext context, CaptureStore store);
+
+typedef CaptureExportEnd =
+    FutureOr<void> Function(
+      BuildContext context,
+      CaptureStore store,
+      CaptureExportFile file,
+    );
+
+/// Optional export callbacks for app-owned loading and file saving behavior.
+class CaptureExportHandler {
+  const CaptureExportHandler({this.exportStart, required this.exportEnd});
+
+  /// Called before the viewer builds the export file.
+  final CaptureExportStart? exportStart;
+
+  /// Called after the viewer has prepared the JSON Lines log file.
+  final CaptureExportEnd exportEnd;
+}
 
 /// One object that owns the capture store, viewer labels, navigation context,
 /// and optional viewer button callbacks.
@@ -30,6 +52,7 @@ class DioCaptureViewerController {
     this.onSettingsTap,
     this.onCloseTap,
     this.toast,
+    this.exportHandler,
     this.confirmClose = true,
   }) : assert(
          store == null || preferences == null,
@@ -60,6 +83,7 @@ class DioCaptureViewerController {
     CaptureViewerAction? onSettingsTap,
     CaptureViewerCloseHandler? onCloseTap,
     CaptureViewerToast? toast,
+    CaptureExportHandler? exportHandler,
     bool confirmClose = true,
   }) {
     return DioCaptureViewerController(
@@ -74,6 +98,7 @@ class DioCaptureViewerController {
       onSettingsTap: onSettingsTap,
       onCloseTap: onCloseTap,
       toast: toast,
+      exportHandler: exportHandler,
       confirmClose: confirmClose,
     );
   }
@@ -104,6 +129,9 @@ class DioCaptureViewerController {
   ///
   /// No built-in toast is shown when this is null.
   final CaptureViewerToast? toast;
+
+  /// Optional export callback. When null, the viewer does not show Export.
+  final CaptureExportHandler? exportHandler;
 
   /// Whether the built-in close confirmation should be used when
   /// [onCloseTap] is not provided.

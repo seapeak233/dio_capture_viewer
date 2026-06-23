@@ -31,9 +31,11 @@ dependencies:
   dio: ^5.9.2
   dio_capture_viewer:
     path: ..
+  file_saver: ^0.4.0
   flutter:
     sdk: flutter
   fluttertoast: ^9.1.0
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:

@@ -1,10 +1,13 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio_capture_viewer/dio_capture_viewer.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:open_filex/open_filex.dart';
 
 import 'capture_settings_page.dart';
 
@@ -15,6 +18,8 @@ void main() {
 const apiHost = 'https://jsonplaceholder.typicode.com';
 
 final navigatorKey = GlobalKey<NavigatorState>();
+final lastExportedLogPath = ValueNotifier<String?>(null);
+bool _isExportLoadingVisible = false;
 
 final captureController = DioCaptureViewerController.init(
   enabled: true,
@@ -30,6 +35,10 @@ final captureController = DioCaptureViewerController.init(
     );
   },
   onCloseTap: _confirmCloseViewer,
+  exportHandler: CaptureExportHandler(
+    exportStart: _showExportLoading,
+    exportEnd: _saveExportedLog,
+  ),
   toast: (_, message) {
     Fluttertoast.showToast(
       msg: message,
@@ -95,6 +104,89 @@ Future<bool> _confirmCloseViewer(
   return shouldClose ?? false;
 }
 
+void _showExportLoading(BuildContext context, CaptureStore store) {
+  final dialogContext = navigatorKey.currentContext ?? context;
+  _isExportLoadingVisible = true;
+  unawaited(
+    showDialog<void>(
+      context: dialogContext,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(18),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 14),
+                Text('Exporting logs...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).whenComplete(() => _isExportLoadingVisible = false),
+  );
+}
+
+Future<void> _saveExportedLog(
+  BuildContext context,
+  CaptureStore store,
+  CaptureExportFile file,
+) async {
+  final dialogContext = navigatorKey.currentContext ?? context;
+  if (_isExportLoadingVisible) {
+    Navigator.of(dialogContext, rootNavigator: true).pop();
+  }
+
+  final extensionStart = file.fileName.lastIndexOf('.');
+  final name = extensionStart == -1
+      ? file.fileName
+      : file.fileName.substring(0, extensionStart);
+  final extension = extensionStart == -1
+      ? 'jsonl'
+      : file.fileName.substring(extensionStart + 1);
+
+  try {
+    final savedPath = await FileSaver.instance.saveFile(
+      name: name,
+      bytes: file.bytes,
+      fileExtension: extension,
+      mimeType: MimeType.custom,
+      customMimeType: file.mimeType,
+    );
+    lastExportedLogPath.value = savedPath.isEmpty ? null : savedPath;
+    Fluttertoast.showToast(
+      msg: 'Exported ${file.fileName}',
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+    );
+  } catch (error) {
+    Fluttertoast.showToast(
+      msg: 'Export failed: $error',
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+    );
+  }
+}
+
+Future<void> _openExportedLog(String filePath) async {
+  final result = await OpenFilex.open(filePath);
+  if (result.type == ResultType.done) {
+    return;
+  }
+  Fluttertoast.showToast(
+    msg: 'Open failed: ${result.message}',
+    toastLength: Toast.LENGTH_LONG,
+    gravity: ToastGravity.BOTTOM,
+  );
+}
+
 class ExampleHomePage extends StatefulWidget {
   const ExampleHomePage({super.key});
 
@@ -124,7 +216,22 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Dio Capture Viewer')),
+      appBar: AppBar(
+        title: const Text('Dio Capture Viewer'),
+        actions: [
+          ValueListenableBuilder<String?>(
+            valueListenable: lastExportedLogPath,
+            builder: (context, filePath, _) {
+              final canOpen = filePath != null && filePath.isNotEmpty;
+              return IconButton(
+                tooltip: canOpen ? 'Open exported log' : 'No exported log yet',
+                onPressed: canOpen ? () => _openExportedLog(filePath) : null,
+                icon: const Icon(Icons.open_in_new),
+              );
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
