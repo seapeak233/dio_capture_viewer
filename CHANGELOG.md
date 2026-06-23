@@ -1,4 +1,4 @@
-## 0.2.1
+## 0.2.0
 
 * Added optional `exportHandler` support on the controller and overlay. When it
   is omitted, the export button is hidden.
