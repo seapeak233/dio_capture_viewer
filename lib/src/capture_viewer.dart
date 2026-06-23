@@ -772,7 +772,7 @@ class _Header extends StatelessWidget {
     final stats = store.stats;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.borderSubtle)),
       ),
@@ -788,7 +788,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _StatText(label: 'ERR', value: stats.error, color: theme.error),
-              const Spacer(),
+              const SizedBox(width: 8),
               _HeaderTextButton(
                 label: 'Clear',
                 onTap: () {
@@ -796,8 +796,8 @@ class _Header extends StatelessWidget {
                   _showToast(context, toast, 'Capture entries cleared');
                 },
               ),
-              const SizedBox(width: 6),
-              if (exportHandler != null)
+              const Spacer(),
+              if (exportHandler != null) ...[
                 _HeaderIconButton(
                   tooltip: 'Export',
                   onTap: () {
@@ -805,7 +805,9 @@ class _Header extends StatelessWidget {
                   },
                   icon: Icons.file_download_outlined,
                 ),
-              if (onSettingsTap != null)
+                const SizedBox(width: 3),
+              ],
+              if (onSettingsTap != null) ...[
                 _HeaderIconButton(
                   tooltip: 'Settings',
                   onTap: () {
@@ -818,6 +820,9 @@ class _Header extends StatelessWidget {
                   },
                   icon: Icons.settings_outlined,
                 ),
+                const SizedBox(width: 3),
+              ],
+
               _HeaderIconButton(
                 tooltip: 'Minimize',
                 onTap: store.toggleMinimized,
@@ -826,7 +831,6 @@ class _Header extends StatelessWidget {
             ],
           ),
           if (host != null) ...[
-            const SizedBox(height: 5),
             Text(
               host!,
               maxLines: 1,
@@ -894,8 +898,8 @@ class _HeaderIconButton extends StatelessWidget {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18, color: theme.textMuted),
+          padding: const EdgeInsets.all(5),
+          child: Icon(icon, size: 20, color: theme.textMuted),
         ),
       ),
     );
