@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:toastification/toastification.dart';
 
 import 'capture_settings_page.dart';
@@ -154,13 +155,24 @@ Future<void> _saveExportedLog(
       : file.fileName.substring(extensionStart + 1);
 
   try {
-    final saved = await _saveCaptureExport(
+    final savedPath = await _saveCaptureExport(
       file,
       name: name,
       extension: extension,
     );
-    if (!saved) {
+    if (savedPath == null) {
       return;
+    }
+    if (_usesMobileFilePanel && savedPath.isNotEmpty) {
+      final result = await OpenFilex.open(savedPath, type: file.mimeType);
+      if (result.type != ResultType.done) {
+        _showMessage(
+          'Exported, but the file could not be opened: ${result.message}',
+          long: true,
+          type: ToastificationType.warning,
+        );
+        return;
+      }
     }
     _showMessage('Exported ${file.fileName}', type: ToastificationType.success);
   } catch (error) {
@@ -172,21 +184,28 @@ Future<void> _saveExportedLog(
   }
 }
 
-Future<bool> _saveCaptureExport(
+bool get _usesDesktopSaveDialog =>
+    !kIsWeb &&
+    switch (defaultTargetPlatform) {
+      TargetPlatform.linux ||
+      TargetPlatform.macOS ||
+      TargetPlatform.windows => true,
+      _ => false,
+    };
+
+bool get _usesMobileFilePanel =>
+    !kIsWeb &&
+    switch (defaultTargetPlatform) {
+      TargetPlatform.android || TargetPlatform.iOS => true,
+      _ => false,
+    };
+
+Future<String?> _saveCaptureExport(
   CaptureExportFile file, {
   required String name,
   required String extension,
 }) async {
-  final usesDesktopSaveDialog =
-      !kIsWeb &&
-      switch (defaultTargetPlatform) {
-        TargetPlatform.linux ||
-        TargetPlatform.macOS ||
-        TargetPlatform.windows => true,
-        _ => false,
-      };
-
-  if (usesDesktopSaveDialog) {
+  if (_usesDesktopSaveDialog) {
     const typeGroup = XTypeGroup(
       label: 'JSON Lines',
       extensions: <String>['jsonl'],
@@ -198,7 +217,7 @@ Future<bool> _saveCaptureExport(
       acceptedTypeGroups: const <XTypeGroup>[typeGroup],
     );
     if (location == null) {
-      return false;
+      return null;
     }
 
     final exportFile = XFile.fromData(
@@ -207,17 +226,16 @@ Future<bool> _saveCaptureExport(
       name: file.fileName,
     );
     await exportFile.saveTo(location.path);
-    return true;
+    return location.path;
   }
 
-  await FileSaver.instance.saveFile(
+  return FileSaver.instance.saveFile(
     name: name,
     bytes: file.bytes,
     fileExtension: extension,
     mimeType: MimeType.custom,
     customMimeType: file.mimeType,
   );
-  return true;
 }
 
 Future<void> _exportCapturedLogs(BuildContext context) async {

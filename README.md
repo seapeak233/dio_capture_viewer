@@ -13,9 +13,11 @@ errors, status codes, request durations, SSE events, and WebSocket messages.
 ## Features
 
 - Floating draggable viewer with compact, docked, and full-screen modes.
+- Responsive split-pane request list and details layout on desktop widths.
 - Dio interceptor for request, response, error, duration, and payload capture.
 - Protocol support for HTTP/Dio, manually reported SSE, and manually reported
-  WebSocket sessions.
+  WebSocket sessions, with visible in-progress states and message copy actions.
+- Optional JSON business-code rules for application-level failure highlighting.
 - Header redaction for authorization, cookies, and token-like fields.
 - Filterable request list, payload copy actions, and protocol-aware
   `Copy To Curl` command generation.
@@ -58,18 +60,6 @@ final captureController = DioCaptureViewerController.init(
   showPanel: true,
   navigatorKey: navigatorKey,
   host: apiHost,
-  // Optional. Rules only inspect top-level fields in JSON response objects.
-  // A matching failure is shown as HTTP_STATUS[BUSINESS_CODE].
-  businessCodeRules: const [
-    CaptureBusinessCodeRule(
-      field: 'result',
-      successCodes: <Object>{10000},
-    ),
-    CaptureBusinessCodeRule(
-      field: 'code',
-      successCodes: <Object>{200},
-    ),
-  ],
   onSettingsTap: (context, store) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -137,12 +127,6 @@ builds a JSON Lines log file from the current cache, then calls `exportEnd` with
 a `CaptureExportFile`. The package prepares the data; your app owns the loading
 UI and local file saving behavior.
 
-`businessCodeRules` is optional and defaults to a single `code == 200` rule to
-preserve the built-in behavior. Rules only inspect top-level fields in JSON
-response objects. Numeric strings and numbers compare by value. All matching
-rules are evaluated; a failure takes precedence over a success. Pass an empty
-list to disable business-code checks.
-
 `CaptureStore` exposes the settings you can place in your own capture settings
 page:
 
@@ -162,6 +146,39 @@ The package does not export a settings page. It only provides the setting entry
 callback, the floating viewer modes, the capture store, and the Dio interceptor.
 
 ## Advanced Configuration
+
+### Business status codes
+
+Some APIs return HTTP 200 for both successful and failed business operations,
+then expose the application result through a JSON field such as `code` or
+`result`. Configure one or more `CaptureBusinessCodeRule` values to reflect
+those failures in the request list:
+
+```dart
+final captureController = DioCaptureViewerController.init(
+  host: apiHost,
+  businessCodeRules: const [
+    CaptureBusinessCodeRule(
+      field: 'result',
+      successCodes: <Object>{10000},
+    ),
+    CaptureBusinessCodeRule(
+      field: 'code',
+      successCodes: <Object>{200},
+    ),
+  ],
+);
+```
+
+Rules only inspect top-level fields in JSON response objects. With the example
+above, HTTP 200 with `result: 10000` remains a green `200`, while HTTP 200 with
+`result: 10006` is highlighted in amber as `200[10006]`. Numeric strings and
+numbers compare by value. When multiple fields match, a failure takes
+precedence over a success.
+
+`businessCodeRules` is optional. Its default is a single `code == 200` rule to
+preserve the package's previous behavior. Pass an empty list to disable
+business-code checks.
 
 ### SSE and WebSocket capture
 

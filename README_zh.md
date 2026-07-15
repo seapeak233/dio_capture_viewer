@@ -11,8 +11,10 @@
 ## 功能特性
 
 - 可拖拽悬浮查看器，支持迷你、贴边和全屏模式。
+- 桌面端宽度下使用请求列表与详情并排的响应式双栏布局。
 - Dio interceptor 支持捕获请求、响应、错误、耗时和载荷内容。
-- 支持 HTTP/Dio、手动上报的 SSE，以及手动上报的 WebSocket 会话。
+- 支持 HTTP/Dio、手动上报的 SSE 和 WebSocket 会话，并展示进行中状态和消息复制操作。
+- 支持可选 JSON 业务码规则，用于标记应用层失败结果。
 - 自动脱敏 authorization、cookie 和 token 类请求头。
 - 支持请求列表过滤、载荷复制，以及按协议生成 `Copy To Curl` 命令。
 - 支持可选的一键导出 JSON Lines（`.jsonl` / NDJSON）回调，由业务侧负责 loading 和保存文件。
@@ -50,18 +52,6 @@ final captureController = DioCaptureViewerController.init(
   showPanel: true,
   navigatorKey: navigatorKey,
   host: apiHost,
-  // 可选。规则只检查 JSON 对象的顶层字段。
-  // 命中失败规则时，列表显示为 HTTP状态码[业务码]。
-  businessCodeRules: const [
-    CaptureBusinessCodeRule(
-      field: 'result',
-      successCodes: <Object>{10000},
-    ),
-    CaptureBusinessCodeRule(
-      field: 'code',
-      successCodes: <Object>{200},
-    ),
-  ],
   onSettingsTap: (context, store) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -121,8 +111,6 @@ class App extends StatelessWidget {
 
 `exportHandler` 是可选项。不传时，全屏查看器不会显示导出按钮。传入后，查看器会调用 `exportStart`，从当前缓存生成 JSON Lines 日志文件，然后通过 `exportEnd` 把 `CaptureExportFile` 返回给业务侧。本库负责整理数据；loading UI 和本地文件保存由你的应用负责。
 
-`businessCodeRules` 是可选项，默认保留一条 `code == 200` 规则，以兼容原有行为。规则只检查 JSON 对象的顶层字段；数字字符串和数字会按数值比较。响应同时命中多条规则时，只要有一条失败就优先显示失败。传入空列表可以关闭业务码检查。
-
 `CaptureStore` 暴露了一些设置能力，你可以放到自己的抓包设置页中：
 
 ```dart
@@ -138,6 +126,30 @@ final maxCacheSize = captureController.store.maxCacheSize;
 这个包不导出设置页。它只提供设置入口回调、悬浮查看器模式、capture store 和 Dio interceptor。
 
 ## 高级配置
+
+### 业务状态码
+
+有些接口无论业务成功或失败都会返回 HTTP 200，再通过 JSON 中的 `code`、`result` 等字段表达业务结果。可以配置一条或多条 `CaptureBusinessCodeRule`，让请求列表同时体现这类业务失败：
+
+```dart
+final captureController = DioCaptureViewerController.init(
+  host: apiHost,
+  businessCodeRules: const [
+    CaptureBusinessCodeRule(
+      field: 'result',
+      successCodes: <Object>{10000},
+    ),
+    CaptureBusinessCodeRule(
+      field: 'code',
+      successCodes: <Object>{200},
+    ),
+  ],
+);
+```
+
+规则只检查 JSON 响应对象的顶层字段。以上配置中，HTTP 200 且 `result: 10000` 时仍显示绿色 `200`；HTTP 200 且 `result: 10006` 时会显示橙黄色 `200[10006]`。数字字符串和数字会按数值比较；同时命中多条规则时，只要有一条失败就优先显示失败。
+
+`businessCodeRules` 是可选项，默认保留一条 `code == 200` 规则，以兼容原有行为。传入空列表可以关闭业务码检查。
 
 ### SSE 和 WebSocket 抓包
 

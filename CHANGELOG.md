@@ -1,14 +1,19 @@
 ## 1.0.0
 
-* Added macOS, Windows, and Linux runners to the example app.
 * Added a responsive desktop viewer layout with a single-row header, request
-  list, and request details pane at widths of 840 logical pixels and above.
-* Updated the example app to use a cross-platform toast implementation and a
-  dedicated viewer actions section.
-* Updated desktop log export to use the native save dialog on macOS, Windows,
-  and Linux.
-* Added optional JSON business-code rules for application-level success and
-  warning states in the request list.
+  list, and request details pane at widths of 840 logical pixels and above. The
+  details pane shows a centered prompt until a request is selected.
+* Added visible in-progress indicators for pending HTTP requests and active SSE
+  or WebSocket connections, including trailing ellipses in active stream list
+  statuses.
+* Added a fixed `Copy all messages` action below the Messages tab for SSE and
+  WebSocket captures.
+* Refined the request list with smaller protocol/method tags and denser status,
+  duration, and timestamp spacing.
+* Added optional, ordered JSON business-code rules to
+  `DioCaptureViewerController`. Rules inspect top-level JSON response fields,
+  preserve successful HTTP status styling for configured success values, and
+  highlight failures as `HTTP_STATUS[BUSINESS_CODE]`.
 
 ## 0.2.0
 
