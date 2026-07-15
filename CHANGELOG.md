@@ -5,6 +5,8 @@
   list, and request details pane at widths of 840 logical pixels and above.
 * Updated the example app to use a cross-platform toast implementation and a
   dedicated viewer actions section.
+* Updated desktop log export to use the native save dialog on macOS, Windows,
+  and Linux.
 
 ## 0.2.0
 

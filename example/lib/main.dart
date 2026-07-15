@@ -1,10 +1,11 @@
 import 'dart:async' show unawaited;
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio_capture_viewer/dio_capture_viewer.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:toastification/toastification.dart';
 
@@ -149,13 +150,14 @@ Future<void> _saveExportedLog(
       : file.fileName.substring(extensionStart + 1);
 
   try {
-    await FileSaver.instance.saveFile(
+    final saved = await _saveCaptureExport(
+      file,
       name: name,
-      bytes: file.bytes,
-      fileExtension: extension,
-      mimeType: MimeType.custom,
-      customMimeType: file.mimeType,
+      extension: extension,
     );
+    if (!saved) {
+      return;
+    }
     _showMessage('Exported ${file.fileName}', type: ToastificationType.success);
   } catch (error) {
     _showMessage(
@@ -164,6 +166,54 @@ Future<void> _saveExportedLog(
       type: ToastificationType.error,
     );
   }
+}
+
+Future<bool> _saveCaptureExport(
+  CaptureExportFile file, {
+  required String name,
+  required String extension,
+}) async {
+  final usesDesktopSaveDialog =
+      !kIsWeb &&
+      switch (defaultTargetPlatform) {
+        TargetPlatform.linux ||
+        TargetPlatform.macOS ||
+        TargetPlatform.windows => true,
+        _ => false,
+      };
+
+  if (usesDesktopSaveDialog) {
+    const typeGroup = XTypeGroup(
+      label: 'JSON Lines',
+      extensions: <String>['jsonl'],
+    );
+    final location = await getSaveLocation(
+      suggestedName: defaultTargetPlatform == TargetPlatform.macOS
+          ? name
+          : file.fileName,
+      acceptedTypeGroups: const <XTypeGroup>[typeGroup],
+    );
+    if (location == null) {
+      return false;
+    }
+
+    final exportFile = XFile.fromData(
+      file.bytes,
+      mimeType: file.mimeType,
+      name: file.fileName,
+    );
+    await exportFile.saveTo(location.path);
+    return true;
+  }
+
+  await FileSaver.instance.saveFile(
+    name: name,
+    bytes: file.bytes,
+    fileExtension: extension,
+    mimeType: MimeType.custom,
+    customMimeType: file.mimeType,
+  );
+  return true;
 }
 
 Future<void> _exportCapturedLogs(BuildContext context) async {
