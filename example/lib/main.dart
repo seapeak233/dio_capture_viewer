@@ -299,16 +299,16 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _SmallButton(
+              _BusinessButton(
                 label: 'Toggle viewer',
                 onPressed: () => captureController.store.togglePanel(),
               ),
-              _SmallButton(label: 'Settings', onPressed: _openSettings),
+              _BusinessButton(label: 'Settings', onPressed: _openSettings),
               ListenableBuilder(
                 listenable: captureController.store,
                 builder: (context, _) {
                   final canExport = captureController.store.entries.isNotEmpty;
-                  return _SmallButton(
+                  return _BusinessButton(
                     label: 'Export logs',
                     onPressed: canExport
                         ? () => unawaited(_exportCapturedLogs(context))
@@ -324,12 +324,12 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
           _ButtonGroup(
             title: 'Real requests',
             children: [
-              _SmallButton(
+              _RequestButton(
                 label: 'GET post',
                 onPressed: () =>
                     _runRequest(() => dio.get<dynamic>('/posts/1')),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'GET comments',
                 onPressed: () => _runRequest(
                   () => dio.get<dynamic>(
@@ -338,7 +338,7 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                   ),
                 ),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'POST',
                 onPressed: () => _runRequest(
                   () => dio.post<dynamic>(
@@ -347,7 +347,7 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                   ),
                 ),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'Error',
                 onPressed: () =>
                     _runRequest(() => dio.get<dynamic>('/missing-endpoint')),
@@ -358,15 +358,13 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
           _ButtonGroup(
             title: 'Mock HTTP',
             children: [
-              _SmallButton(
+              _RequestButton(
                 label: 'GET',
-                filled: true,
                 onPressed: () =>
                     _runRequest(() => mockDio.get<dynamic>('/posts/1')),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'List',
-                filled: true,
                 onPressed: () => _runRequest(
                   () => mockDio.get<dynamic>(
                     '/comments',
@@ -374,9 +372,8 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                   ),
                 ),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'POST',
-                filled: true,
                 onPressed: () => _runRequest(
                   () => mockDio.post<dynamic>(
                     '/posts',
@@ -384,7 +381,7 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                   ),
                 ),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'Error',
                 onPressed: () => _runRequest(
                   () => mockDio.get<dynamic>('/missing-endpoint'),
@@ -397,28 +394,31 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
             title: 'Mock SSE and WebSocket',
             subtitle: 'Advanced manual stream capture',
             children: [
-              _SmallButton(
+              _RequestButton(
                 label: 'WS close',
-                filled: true,
                 onPressed: () => _mockWebSocket(closeNormally: true),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'WS error',
                 onPressed: () => _mockWebSocket(closeNormally: false),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'SSE close',
-                filled: true,
                 onPressed: () => _mockSse(closeNormally: true),
               ),
-              _SmallButton(
+              _RequestButton(
                 label: 'SSE error',
                 onPressed: () => _mockSse(closeNormally: false),
               ),
             ],
           ),
           const SizedBox(height: 24),
-          Text('Last response', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Last response',
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           DecoratedBox(
             decoration: BoxDecoration(
@@ -563,11 +563,16 @@ class _ButtonGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.titleSmall),
+        Text(
+          title,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         if (subtitle != null)
           Text(
             subtitle!,
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -578,41 +583,58 @@ class _ButtonGroup extends StatelessWidget {
   }
 }
 
-class _SmallButton extends StatelessWidget {
-  const _SmallButton({
-    required this.label,
-    required this.onPressed,
-    this.filled = false,
-  });
+class _BusinessButton extends StatelessWidget {
+  const _BusinessButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback? onPressed;
-  final bool filled;
 
   @override
   Widget build(BuildContext context) {
-    final style = ButtonStyle(
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      minimumSize: WidgetStateProperty.all(const Size(0, 32)),
-      padding: WidgetStateProperty.all(
-        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    final theme = Theme.of(context);
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: ButtonStyle(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: WidgetStateProperty.all(const Size(0, 40)),
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        ),
+        textStyle: WidgetStateProperty.all(
+          theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       ),
-      textStyle: WidgetStateProperty.all(
-        Theme.of(context).textTheme.labelSmall,
-      ),
+      child: Text(label),
     );
+  }
+}
 
-    if (filled) {
-      return FilledButton.tonal(
-        onPressed: onPressed,
-        style: style,
-        child: Text(label),
-      );
-    }
+class _RequestButton extends StatelessWidget {
+  const _RequestButton({required this.label, required this.onPressed});
 
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
     return OutlinedButton(
       onPressed: onPressed,
-      style: style,
+      style: ButtonStyle(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: WidgetStateProperty.all(const Size(0, 30)),
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        ),
+        textStyle: WidgetStateProperty.all(
+          Theme.of(context).textTheme.labelSmall,
+        ),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      ),
       child: Text(label),
     );
   }

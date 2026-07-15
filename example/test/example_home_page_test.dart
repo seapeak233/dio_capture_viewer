@@ -9,8 +9,8 @@ void main() {
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
 
-    OutlinedButton exportButton() => tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'Export logs'),
+    FilledButton exportButton() => tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Export logs'),
     );
 
     expect(exportButton().onPressed, isNull);
