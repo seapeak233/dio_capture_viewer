@@ -1,3 +1,11 @@
+## 1.0.0
+
+* Added macOS, Windows, and Linux runners to the example app.
+* Added a responsive desktop viewer layout with a single-row header, request
+  list, and request details pane at widths of 840 logical pixels and above.
+* Updated the example app to use a cross-platform toast implementation and a
+  dedicated viewer actions section.
+
 ## 0.2.0
 
 * Added optional `exportHandler` support on the controller and overlay. When it

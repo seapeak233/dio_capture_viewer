@@ -225,25 +225,43 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dio Capture Viewer'),
-        actions: [
-          ValueListenableBuilder<String?>(
-            valueListenable: lastExportedLogPath,
-            builder: (context, filePath, _) {
-              final canOpen = filePath != null && filePath.isNotEmpty;
-              return IconButton(
-                tooltip: canOpen ? 'Open exported log' : 'No exported log yet',
-                onPressed: canOpen ? () => _openExportedLog(filePath) : null,
-                icon: const Icon(Icons.open_in_new),
-              );
-            },
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Dio Capture Viewer')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _SmallButton(
+                label: 'Toggle viewer',
+                onPressed: () => captureController.store.togglePanel(),
+              ),
+              _SmallButton(label: 'Settings', onPressed: _openSettings),
+              ValueListenableBuilder<String?>(
+                valueListenable: lastExportedLogPath,
+                builder: (context, filePath, _) {
+                  final canOpen = filePath != null && filePath.isNotEmpty;
+                  return SizedBox.square(
+                    dimension: 36,
+                    child: IconButton.outlined(
+                      tooltip: canOpen
+                          ? 'Open exported log'
+                          : 'No exported log yet',
+                      onPressed: canOpen
+                          ? () => _openExportedLog(filePath)
+                          : null,
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 12),
           _ButtonGroup(
             title: 'Real requests',
             children: [
@@ -338,18 +356,6 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                 label: 'SSE error',
                 onPressed: () => _mockSse(closeNormally: false),
               ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _SmallButton(
-                label: 'Toggle viewer',
-                onPressed: () => captureController.store.togglePanel(),
-              ),
-              _SmallButton(label: 'Settings', onPressed: _openSettings),
             ],
           ),
           const SizedBox(height: 24),
