@@ -1130,19 +1130,24 @@ class _EntryTile extends StatelessWidget {
               children: [
                 _MethodChip(method: entry.method),
                 const SizedBox(width: 8),
-                Text(
-                  _timeText(entry.timestamp),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.textMuted,
+                Expanded(
+                  child: Text(
+                    _timeText(entry.timestamp),
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.textMuted,
+                    ),
                   ),
                 ),
                 if (entry.duration != null) ...[
                   const SizedBox(width: 6),
                   _DurationTag(duration: entry.duration!),
                 ],
-                const Spacer(),
+                const SizedBox(width: 8),
                 Text(
-                  _statusText(entry),
+                  _listStatusText(entry),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: statusColor,
                     fontWeight: FontWeight.w700,
@@ -1955,6 +1960,16 @@ String _statusText(CaptureEntry entry) {
     return 'Error';
   }
   return 'Pending';
+}
+
+String _listStatusText(CaptureEntry entry) {
+  final status = _statusText(entry);
+  final isActiveStream =
+      entry.protocol != CaptureProtocol.http &&
+      entry.closedAt == null &&
+      entry.state != CaptureState.closed &&
+      entry.state != CaptureState.error;
+  return isActiveStream ? '$status...' : status;
 }
 
 String _protocolText(CaptureProtocol protocol) {

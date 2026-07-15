@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Future<void> pumpViewer(WidgetTester tester, double width) async {
+  Future<DioCaptureViewerController> pumpViewer(
+    WidgetTester tester,
+    double width,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = Size(width, 800);
 
@@ -26,6 +29,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    return controller;
   }
 
   tearDown(() {
@@ -69,5 +73,30 @@ void main() {
       find.byKey(const ValueKey('dio-capture-desktop-layout')),
       findsNothing,
     );
+  });
+
+  testWidgets('marks active SSE and WebSocket entries as continuing', (
+    tester,
+  ) async {
+    final controller = await pumpViewer(tester, 840);
+    final sse = controller.store.startStreamCapture(
+      protocol: CaptureProtocol.sse,
+      url: 'https://example.com/events',
+    );
+    final webSocket = controller.store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/socket',
+    );
+    await tester.pump();
+
+    expect(find.text('Connected...'), findsNWidgets(2));
+
+    sse.close();
+    webSocket.fail('connection lost');
+    await tester.pump();
+
+    expect(find.text('Connected...'), findsNothing);
+    expect(find.text('Closed'), findsOneWidget);
+    expect(find.text('Error'), findsOneWidget);
   });
 }
