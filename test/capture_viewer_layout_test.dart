@@ -5,8 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Future<DioCaptureViewerController> pumpViewer(
     WidgetTester tester,
-    double width,
-  ) async {
+    double width, {
+    Duration streamNotifyInterval = CaptureStore.defaultStreamNotifyInterval,
+  }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = Size(width, 800);
 
@@ -15,6 +16,7 @@ void main() {
       showPanel: true,
       label: 'Example API',
       host: 'https://example.com',
+      streamNotifyInterval: streamNotifyInterval,
     );
     controller.store.showPanel(minimized: false);
 
@@ -98,5 +100,66 @@ void main() {
     expect(find.text('Connected...'), findsNothing);
     expect(find.text('Closed'), findsOneWidget);
     expect(find.text('Error'), findsOneWidget);
+  });
+
+  testWidgets('shows in-progress details and a fixed message copy action', (
+    tester,
+  ) async {
+    final controller = await pumpViewer(
+      tester,
+      840,
+      streamNotifyInterval: Duration.zero,
+    );
+    final session = controller.store.startStreamCapture(
+      protocol: CaptureProtocol.webSocket,
+      url: 'wss://example.com/realtime',
+    );
+    session.addInbound({'type': 'update'}, label: 'update');
+    controller.store
+      ..selectEntry(controller.store.entries.single)
+      ..setTab(2);
+    await tester.pump();
+
+    expect(find.text('Connection is still active'), findsOneWidget);
+    final copyMessages = find.byKey(
+      const ValueKey('dio-capture-copy-all-messages'),
+    );
+    expect(copyMessages, findsOneWidget);
+    expect(tester.widget<FilledButton>(copyMessages).onPressed, isNotNull);
+    expect(
+      find.ancestor(of: copyMessages, matching: find.byType(Scrollable)),
+      findsNothing,
+    );
+
+    for (final tab in <int>[0, 1, 2]) {
+      controller.store.setTab(tab);
+      await tester.pump();
+      expect(find.text('Connection is still active'), findsOneWidget);
+    }
+
+    session.close();
+    await tester.pump();
+    expect(find.text('Connection is still active'), findsNothing);
+
+    final pendingHttp = CaptureEntry(
+      id: 'pending-http',
+      method: 'GET',
+      url: 'https://example.com/pending',
+      timestamp: DateTime(2026),
+    );
+    controller.store
+      ..addEntry(pendingHttp)
+      ..selectEntry(pendingHttp);
+    await tester.pump();
+
+    expect(find.text('Request is still in progress'), findsOneWidget);
+
+    controller.store.updateEntry(
+      pendingHttp.id,
+      statusCode: 200,
+      responseData: const <String, Object?>{},
+    );
+    await tester.pump();
+    expect(find.text('Request is still in progress'), findsNothing);
   });
 }

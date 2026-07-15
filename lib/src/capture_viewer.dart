@@ -1129,7 +1129,7 @@ class _EntryTile extends StatelessWidget {
             Row(
               children: [
                 _MethodChip(method: entry.method),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     _timeText(entry.timestamp),
@@ -1207,17 +1207,19 @@ class _MethodChip extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withAlpha(28),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withAlpha(80)),
+        color: color.withAlpha(22),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: color.withAlpha(64)),
       ),
       child: Text(
         method.toUpperCase(),
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
+          fontSize: 10,
           fontWeight: FontWeight.w700,
+          height: 1.1,
         ),
       ),
     );
@@ -1264,6 +1266,7 @@ class _EntryDetails extends StatelessWidget {
             ],
           ),
         ),
+        if (_isEntryInProgress(entry)) _InProgressBanner(entry: entry),
         Expanded(
           child: switch (store.currentTabIndex) {
             0 => _OverviewTab(entry: entry, toast: toast),
@@ -1289,6 +1292,55 @@ class _EntryDetails extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _InProgressBanner extends StatelessWidget {
+  const _InProgressBanner({required this.entry});
+
+  final CaptureEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = CaptureTheme(context);
+    final label = entry.protocol == CaptureProtocol.http
+        ? 'Request is still in progress'
+        : 'Connection is still active';
+
+    return Container(
+      key: const ValueKey('dio-capture-in-progress-banner'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.warningContainer.withAlpha(100),
+        border: Border(bottom: BorderSide(color: theme.borderSubtle)),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: theme.warningContainer,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: theme.warning.withAlpha(72)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.pending_outlined, size: 12, color: theme.warning),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.warning,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1583,27 +1635,59 @@ class _MessagesTabState extends State<_MessagesTab> {
   @override
   Widget build(BuildContext context) {
     final theme = CaptureTheme(context);
-    if (widget.messages.isEmpty) {
-      return Center(
-        child: Text(
-          'No messages',
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.textMuted),
+    return Column(
+      children: [
+        Expanded(
+          child: widget.messages.isEmpty
+              ? Center(
+                  child: Text(
+                    'No messages',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textMuted,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  itemCount: widget.messages.length,
+                  separatorBuilder: (context, _) =>
+                      Divider(height: 1, color: theme.borderSubtle),
+                  itemBuilder: (context, index) {
+                    return _MessageRow(
+                      message: widget.messages[index],
+                      toast: widget.toast,
+                    );
+                  },
+                ),
         ),
-      );
-    }
-
-    return ListView.separated(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      itemCount: widget.messages.length,
-      separatorBuilder: (context, _) =>
-          Divider(height: 1, color: theme.borderSubtle),
-      itemBuilder: (context, index) {
-        return _MessageRow(
-          message: widget.messages[index],
-          toast: widget.toast,
-        );
-      },
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          decoration: BoxDecoration(
+            color: theme.surface,
+            border: Border(top: BorderSide(color: theme.borderSubtle)),
+          ),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonalIcon(
+              key: const ValueKey('dio-capture-copy-all-messages'),
+              onPressed: widget.messages.isEmpty
+                  ? null
+                  : () => _copyAllMessages(
+                      context,
+                      widget.messages,
+                      widget.toast,
+                    ),
+              icon: const Icon(Icons.copy_all_outlined, size: 16),
+              label: const Text('Copy all messages'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1841,21 +1925,43 @@ void _copyAllData(
   if (entry.messages.isNotEmpty) {
     writePayload(
       'Messages',
-      entry.messages
-          .map(
-            (message) => <String, Object?>{
-              'time': message.timestamp.toIso8601String(),
-              'direction': _messageDirectionText(message.direction),
-              'type': _messageTypeText(message.type),
-              if (message.label != null) 'label': message.label,
-              'data': message.data,
-            },
-          )
-          .toList(growable: false),
+      entry.messages.map(_messageData).toList(growable: false),
     );
   }
 
   _copyText(context, buffer.toString(), toast);
+}
+
+void _copyAllMessages(
+  BuildContext context,
+  List<CaptureMessage> messages,
+  CaptureViewerToast? toast,
+) {
+  final data = messages.map(_messageData).toList(growable: false);
+  String text;
+  try {
+    text = _jsonEncoder.convert(data);
+  } catch (_) {
+    text = messages
+        .map((message) {
+          final label = message.label ?? _messageTypeText(message.type);
+          return '[${message.timestamp.toIso8601String()}] '
+              '${_messageDirectionText(message.direction)} $label\n'
+              '${_payloadText(message.data)}';
+        })
+        .join('\n\n');
+  }
+  _copyText(context, text, toast);
+}
+
+Map<String, Object?> _messageData(CaptureMessage message) {
+  return <String, Object?>{
+    'time': message.timestamp.toIso8601String(),
+    'direction': _messageDirectionText(message.direction),
+    'type': _messageTypeText(message.type),
+    if (message.label != null) 'label': message.label,
+    'data': message.data,
+  };
 }
 
 void _copyCurlData(
@@ -1965,11 +2071,19 @@ String _statusText(CaptureEntry entry) {
 String _listStatusText(CaptureEntry entry) {
   final status = _statusText(entry);
   final isActiveStream =
-      entry.protocol != CaptureProtocol.http &&
-      entry.closedAt == null &&
+      entry.protocol != CaptureProtocol.http && _isEntryInProgress(entry);
+  return isActiveStream ? '$status...' : status;
+}
+
+bool _isEntryInProgress(CaptureEntry entry) {
+  if (entry.protocol == CaptureProtocol.http) {
+    return entry.state == CaptureState.pending &&
+        entry.statusCode == null &&
+        entry.errorMessage == null;
+  }
+  return entry.closedAt == null &&
       entry.state != CaptureState.closed &&
       entry.state != CaptureState.error;
-  return isActiveStream ? '$status...' : status;
 }
 
 String _protocolText(CaptureProtocol protocol) {
