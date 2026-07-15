@@ -243,17 +243,11 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                 valueListenable: lastExportedLogPath,
                 builder: (context, filePath, _) {
                   final canOpen = filePath != null && filePath.isNotEmpty;
-                  return SizedBox.square(
-                    dimension: 36,
-                    child: IconButton.outlined(
-                      tooltip: canOpen
-                          ? 'Open exported log'
-                          : 'No exported log yet',
-                      onPressed: canOpen
-                          ? () => _openExportedLog(filePath)
-                          : null,
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                    ),
+                  return _SmallButton(
+                    label: 'Open exported log',
+                    onPressed: canOpen
+                        ? () => _openExportedLog(filePath)
+                        : null,
                   );
                 },
               ),
@@ -527,7 +521,7 @@ class _SmallButton extends StatelessWidget {
   });
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool filled;
 
   @override
