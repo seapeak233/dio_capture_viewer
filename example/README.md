@@ -14,3 +14,11 @@ Run it with:
 ```sh
 flutter run
 ```
+
+Desktop targets are included as well:
+
+```sh
+flutter run -d macos
+flutter run -d windows
+flutter run -d linux
+```

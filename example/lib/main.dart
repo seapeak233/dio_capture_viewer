@@ -6,8 +6,8 @@ import 'package:dio/dio.dart';
 import 'package:dio_capture_viewer/dio_capture_viewer.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:toastification/toastification.dart';
 
 import 'capture_settings_page.dart';
 
@@ -40,11 +40,7 @@ final captureController = DioCaptureViewerController.init(
     exportEnd: _saveExportedLog,
   ),
   toast: (_, message) {
-    Fluttertoast.showToast(
-      msg: message,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-    );
+    _showMessage(message);
   },
 );
 
@@ -61,20 +57,22 @@ class ExampleApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      title: 'Dio Capture Viewer',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+    return ToastificationWrapper(
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        title: 'Dio Capture Viewer',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        ),
+        builder: (context, child) {
+          return DioCaptureViewerOverlay(
+            controller: captureController,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: const ExampleHomePage(),
       ),
-      builder: (context, child) {
-        return DioCaptureViewerOverlay(
-          controller: captureController,
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      home: const ExampleHomePage(),
     );
   }
 }
@@ -161,16 +159,12 @@ Future<void> _saveExportedLog(
       customMimeType: file.mimeType,
     );
     lastExportedLogPath.value = savedPath.isEmpty ? null : savedPath;
-    Fluttertoast.showToast(
-      msg: 'Exported ${file.fileName}',
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-    );
+    _showMessage('Exported ${file.fileName}', type: ToastificationType.success);
   } catch (error) {
-    Fluttertoast.showToast(
-      msg: 'Export failed: $error',
-      toastLength: Toast.LENGTH_LONG,
-      gravity: ToastGravity.BOTTOM,
+    _showMessage(
+      'Export failed: $error',
+      long: true,
+      type: ToastificationType.error,
     );
   }
 }
@@ -180,10 +174,25 @@ Future<void> _openExportedLog(String filePath) async {
   if (result.type == ResultType.done) {
     return;
   }
-  Fluttertoast.showToast(
-    msg: 'Open failed: ${result.message}',
-    toastLength: Toast.LENGTH_LONG,
-    gravity: ToastGravity.BOTTOM,
+  _showMessage(
+    'Open failed: ${result.message}',
+    long: true,
+    type: ToastificationType.error,
+  );
+}
+
+void _showMessage(
+  String message, {
+  bool long = false,
+  ToastificationType type = ToastificationType.info,
+}) {
+  toastification.show(
+    type: type,
+    style: ToastificationStyle.simple,
+    title: Text(message),
+    alignment: Alignment.bottomCenter,
+    autoCloseDuration: Duration(seconds: long ? 4 : 2),
+    showProgressBar: false,
   );
 }
 

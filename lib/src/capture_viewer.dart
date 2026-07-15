@@ -17,6 +17,7 @@ const _miniPanelHeight = 54.0;
 const _dockedPanelWidth = 34.0;
 const _dockedPanelHeight = 52.0;
 const _dockedPanelAlpha = 168;
+const _desktopLayoutBreakpoint = 840.0;
 const _compactPanelAnimationDuration = Duration(milliseconds: 220);
 const _compactPanelAnimationCurve = Curves.easeOutCubic;
 
@@ -79,6 +80,7 @@ class DioCaptureViewer extends StatelessWidget {
                 _FullPanel(
                   controller: controller,
                   store: effectiveStore,
+                  label: effectiveLabel,
                   host: effectiveHost,
                   onSettingsTap: effectiveSettingsTap,
                   toast: effectiveToast,
@@ -617,6 +619,7 @@ class _FullPanel extends StatelessWidget {
   const _FullPanel({
     required this.controller,
     required this.store,
+    required this.label,
     required this.host,
     required this.onSettingsTap,
     required this.toast,
@@ -626,6 +629,7 @@ class _FullPanel extends StatelessWidget {
 
   final DioCaptureViewerController? controller;
   final CaptureStore store;
+  final String label;
   final String? host;
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerToast? toast;
@@ -635,7 +639,7 @@ class _FullPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final isCompact = size.width < 720;
+    final isDesktop = size.width >= _desktopLayoutBreakpoint;
     final theme = CaptureTheme(context);
 
     return Positioned.fill(
@@ -652,12 +656,12 @@ class _FullPanel extends StatelessWidget {
           child: SafeArea(
             child: Center(
               child: Container(
-                width: isCompact ? size.width : size.width * 0.92,
-                height: isCompact ? size.height : size.height * 0.82,
+                width: isDesktop ? size.width * 0.92 : size.width,
+                height: isDesktop ? size.height * 0.82 : size.height,
                 constraints: const BoxConstraints(maxWidth: 1180),
                 decoration: BoxDecoration(
                   color: theme.surface,
-                  borderRadius: BorderRadius.circular(isCompact ? 0 : 8),
+                  borderRadius: BorderRadius.circular(isDesktop ? 8 : 0),
                   boxShadow: [
                     BoxShadow(
                       color: theme.shadow,
@@ -670,7 +674,9 @@ class _FullPanel extends StatelessWidget {
                   children: [
                     _Header(
                       store: store,
+                      label: label,
                       host: host,
+                      isDesktop: isDesktop,
                       onSettingsTap: onSettingsTap,
                       toast: toast,
                       exportHandler: exportHandler,
@@ -678,8 +684,34 @@ class _FullPanel extends StatelessWidget {
                       actionContext: actionContext,
                     ),
                     Expanded(
-                      child: isCompact
-                          ? Column(
+                      child: isDesktop
+                          ? Row(
+                              key: const ValueKey('dio-capture-desktop-layout'),
+                              children: [
+                                SizedBox(
+                                  key: const ValueKey(
+                                    'dio-capture-request-list-pane',
+                                  ),
+                                  width: 360,
+                                  child: _EntryList(store: store, toast: toast),
+                                ),
+                                VerticalDivider(
+                                  width: 1,
+                                  color: theme.borderSubtle,
+                                ),
+                                Expanded(
+                                  key: const ValueKey(
+                                    'dio-capture-request-details-pane',
+                                  ),
+                                  child: _EntryDetails(
+                                    store: store,
+                                    toast: toast,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              key: const ValueKey('dio-capture-compact-layout'),
                               children: [
                                 Expanded(
                                   flex: 2,
@@ -688,24 +720,6 @@ class _FullPanel extends StatelessWidget {
                                 Divider(height: 1, color: theme.borderSubtle),
                                 Expanded(
                                   flex: 3,
-                                  child: _EntryDetails(
-                                    store: store,
-                                    toast: toast,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Row(
-                              children: [
-                                SizedBox(
-                                  width: 380,
-                                  child: _EntryList(store: store, toast: toast),
-                                ),
-                                VerticalDivider(
-                                  width: 1,
-                                  color: theme.borderSubtle,
-                                ),
-                                Expanded(
                                   child: _EntryDetails(
                                     store: store,
                                     toast: toast,
@@ -729,7 +743,9 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.controller,
     required this.store,
+    required this.label,
     required this.host,
+    required this.isDesktop,
     required this.onSettingsTap,
     required this.toast,
     required this.exportHandler,
@@ -738,7 +754,9 @@ class _Header extends StatelessWidget {
 
   final DioCaptureViewerController? controller;
   final CaptureStore store;
+  final String label;
   final String? host;
+  final bool isDesktop;
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerToast? toast;
   final CaptureExportHandler? exportHandler;
@@ -770,78 +788,105 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = CaptureTheme(context);
     final stats = store.stats;
+    final actions = <Widget>[
+      if (exportHandler != null) ...[
+        _HeaderIconButton(
+          tooltip: 'Export',
+          onTap: () {
+            unawaited(_handleExport(context));
+          },
+          icon: Icons.file_download_outlined,
+        ),
+        const SizedBox(width: 3),
+      ],
+      if (onSettingsTap != null) ...[
+        _HeaderIconButton(
+          tooltip: 'Settings',
+          onTap: () {
+            store.showMini();
+            final fallbackContext = actionContext ?? context;
+            final targetContext =
+                controller?.actionContext(fallbackContext) ?? fallbackContext;
+            onSettingsTap!(targetContext, store);
+          },
+          icon: Icons.settings_outlined,
+        ),
+        const SizedBox(width: 3),
+      ],
+      _HeaderIconButton(
+        tooltip: 'Minimize',
+        onTap: store.toggleMinimized,
+        icon: Icons.minimize,
+      ),
+    ];
+
+    final statsAndClear = <Widget>[
+      _StatText(label: 'OK', value: stats.success, color: theme.success),
+      const SizedBox(width: 8),
+      _StatText(label: 'ERR', value: stats.error, color: theme.error),
+      const SizedBox(width: 8),
+      _HeaderTextButton(
+        label: 'Clear',
+        onTap: () {
+          store.clearEntries();
+          _showToast(context, toast, 'Capture entries cleared');
+        },
+      ),
+    ];
 
     return Container(
+      key: const ValueKey('dio-capture-title-bar'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.borderSubtle)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _StatText(
-                label: 'OK',
-                value: stats.success,
-                color: theme.success,
-              ),
-              const SizedBox(width: 8),
-              _StatText(label: 'ERR', value: stats.error, color: theme.error),
-              const SizedBox(width: 8),
-              _HeaderTextButton(
-                label: 'Clear',
-                onTap: () {
-                  store.clearEntries();
-                  _showToast(context, toast, 'Capture entries cleared');
-                },
-              ),
-              const Spacer(),
-              if (exportHandler != null) ...[
-                _HeaderIconButton(
-                  tooltip: 'Export',
-                  onTap: () {
-                    unawaited(_handleExport(context));
-                  },
-                  icon: Icons.file_download_outlined,
+      child: isDesktop
+          ? Row(
+              key: const ValueKey('dio-capture-desktop-title-bar'),
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 3),
-              ],
-              if (onSettingsTap != null) ...[
-                _HeaderIconButton(
-                  tooltip: 'Settings',
-                  onTap: () {
-                    store.showMini();
-                    final fallbackContext = actionContext ?? context;
-                    final targetContext =
-                        controller?.actionContext(fallbackContext) ??
-                        fallbackContext;
-                    onSettingsTap!(targetContext, store);
-                  },
-                  icon: Icons.settings_outlined,
+                const SizedBox(width: 12),
+                ...statsAndClear,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    host ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.textMuted,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 3),
+                ...actions,
               ],
-
-              _HeaderIconButton(
-                tooltip: 'Minimize',
-                onTap: store.toggleMinimized,
-                icon: Icons.minimize,
-              ),
-            ],
-          ),
-          if (host != null) ...[
-            Text(
-              host!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.textMuted,
-              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [...statsAndClear, const Spacer(), ...actions]),
+                if (host != null)
+                  Text(
+                    host!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.textMuted,
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ],
-      ),
     );
   }
 }
