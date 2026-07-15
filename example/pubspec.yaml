@@ -34,7 +34,6 @@ dependencies:
   file_saver: ^0.4.0
   flutter:
     sdk: flutter
-  open_filex: ^4.7.0
   toastification: ^3.2.0
 
 dev_dependencies:

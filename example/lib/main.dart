@@ -6,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:dio_capture_viewer/dio_capture_viewer.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:toastification/toastification.dart';
 
 import 'capture_settings_page.dart';
@@ -18,7 +17,6 @@ void main() {
 const apiHost = 'https://jsonplaceholder.typicode.com';
 
 final navigatorKey = GlobalKey<NavigatorState>();
-final lastExportedLogPath = ValueNotifier<String?>(null);
 bool _isExportLoadingVisible = false;
 
 final captureController = DioCaptureViewerController.init(
@@ -151,14 +149,13 @@ Future<void> _saveExportedLog(
       : file.fileName.substring(extensionStart + 1);
 
   try {
-    final savedPath = await FileSaver.instance.saveFile(
+    await FileSaver.instance.saveFile(
       name: name,
       bytes: file.bytes,
       fileExtension: extension,
       mimeType: MimeType.custom,
       customMimeType: file.mimeType,
     );
-    lastExportedLogPath.value = savedPath.isEmpty ? null : savedPath;
     _showMessage('Exported ${file.fileName}', type: ToastificationType.success);
   } catch (error) {
     _showMessage(
@@ -169,16 +166,34 @@ Future<void> _saveExportedLog(
   }
 }
 
-Future<void> _openExportedLog(String filePath) async {
-  final result = await OpenFilex.open(filePath);
-  if (result.type == ResultType.done) {
+Future<void> _exportCapturedLogs(BuildContext context) async {
+  final store = captureController.store;
+  final handler = captureController.exportHandler;
+  if (store.entries.isEmpty || handler == null) {
     return;
   }
-  _showMessage(
-    'Open failed: ${result.message}',
-    long: true,
-    type: ToastificationType.error,
-  );
+
+  try {
+    await handler.exportStart?.call(context, store);
+    final actionContext = navigatorKey.currentContext;
+    if (actionContext == null || !actionContext.mounted) {
+      return;
+    }
+    final file = buildCaptureLogExport(store);
+    await handler.exportEnd(actionContext, store, file);
+  } catch (error) {
+    final dialogContext = navigatorKey.currentContext;
+    if (_isExportLoadingVisible &&
+        dialogContext != null &&
+        dialogContext.mounted) {
+      Navigator.of(dialogContext, rootNavigator: true).pop();
+    }
+    _showMessage(
+      'Export failed: $error',
+      long: true,
+      type: ToastificationType.error,
+    );
+  }
 }
 
 void _showMessage(
@@ -239,14 +254,14 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                 onPressed: () => captureController.store.togglePanel(),
               ),
               _SmallButton(label: 'Settings', onPressed: _openSettings),
-              ValueListenableBuilder<String?>(
-                valueListenable: lastExportedLogPath,
-                builder: (context, filePath, _) {
-                  final canOpen = filePath != null && filePath.isNotEmpty;
+              ListenableBuilder(
+                listenable: captureController.store,
+                builder: (context, _) {
+                  final canExport = captureController.store.entries.isNotEmpty;
                   return _SmallButton(
-                    label: 'Open exported log',
-                    onPressed: canOpen
-                        ? () => _openExportedLog(filePath)
+                    label: 'Export logs',
+                    onPressed: canExport
+                        ? () => unawaited(_exportCapturedLogs(context))
                         : null,
                   );
                 },
