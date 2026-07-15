@@ -30,11 +30,13 @@ errors, status codes, request durations, SSE events, and WebSocket messages.
 ## Preview
 
 <p>
-  <img src="assets/screenshots/preview1.jpg" width="220" alt="Capture viewer preview 1">
-  <img src="assets/screenshots/preview2.jpg" width="220" alt="Capture viewer preview 2">
-  <img src="assets/screenshots/preview3.jpg" width="220" alt="Capture viewer preview 3">
-  <img src="assets/screenshots/preview4.jpg" width="220" alt="Capture viewer preview 4">
-  <img src="assets/screenshots/preview5.gif" width="220" alt="Capture viewer preview animation">
+  <img src="assets/screenshots/preview1.png" width="220" alt="Example app controls">
+  <img src="assets/screenshots/preview2.png" width="220" alt="Capture viewer settings">
+  <img src="assets/screenshots/preview3.png" width="220" alt="Mobile capture viewer">
+</p>
+
+<p>
+  <img src="assets/screenshots/preview4.png" width="760" alt="Desktop capture viewer">
 </p>
 
 ## Usage

@@ -23,11 +23,13 @@
 ## 预览
 
 <p>
-  <img src="assets/screenshots/preview1.jpg" width="220" alt="抓包查看器预览 1">
-  <img src="assets/screenshots/preview2.jpg" width="220" alt="抓包查看器预览 2">
-  <img src="assets/screenshots/preview3.jpg" width="220" alt="抓包查看器预览 3">
-  <img src="assets/screenshots/preview4.jpg" width="220" alt="抓包查看器预览 4">
-  <img src="assets/screenshots/preview5.gif" width="220" alt="抓包查看器动画预览">
+  <img src="assets/screenshots/preview1.png" width="220" alt="示例应用操作区">
+  <img src="assets/screenshots/preview2.png" width="220" alt="抓包查看器设置页">
+  <img src="assets/screenshots/preview3.png" width="220" alt="移动端抓包查看器">
+</p>
+
+<p>
+  <img src="assets/screenshots/preview4.png" width="760" alt="桌面端抓包查看器">
 </p>
 
 ## 使用方式
