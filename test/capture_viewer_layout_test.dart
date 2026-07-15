@@ -7,6 +7,8 @@ void main() {
     WidgetTester tester,
     double width, {
     Duration streamNotifyInterval = CaptureStore.defaultStreamNotifyInterval,
+    List<CaptureBusinessCodeRule> businessCodeRules =
+        CaptureBusinessCodeRule.defaultRules,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = Size(width, 800);
@@ -17,6 +19,7 @@ void main() {
       label: 'Example API',
       host: 'https://example.com',
       streamNotifyInterval: streamNotifyInterval,
+      businessCodeRules: businessCodeRules,
     );
     controller.store.showPanel(minimized: false);
 
@@ -161,5 +164,60 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Request is still in progress'), findsNothing);
+  });
+
+  testWidgets('applies injected business code rules to JSON objects', (
+    tester,
+  ) async {
+    final controller = await pumpViewer(
+      tester,
+      840,
+      businessCodeRules: const <CaptureBusinessCodeRule>[
+        CaptureBusinessCodeRule(field: 'code', successCodes: <Object>{200}),
+        CaptureBusinessCodeRule(field: 'result', successCodes: <Object>{10000}),
+      ],
+    );
+
+    controller.store
+      ..addEntry(
+        CaptureEntry(
+          id: 'business-success',
+          method: 'GET',
+          url: 'https://example.com/success',
+          timestamp: DateTime(2026),
+          statusCode: 200,
+          responseData: const <String, Object>{'result': '10000'},
+        ),
+      )
+      ..addEntry(
+        CaptureEntry(
+          id: 'business-failure',
+          method: 'GET',
+          url: 'https://example.com/failure',
+          timestamp: DateTime(2026),
+          statusCode: 200,
+          responseData: const <String, Object>{'code': 200, 'result': 10006},
+        ),
+      )
+      ..addEntry(
+        CaptureEntry(
+          id: 'json-string',
+          method: 'GET',
+          url: 'https://example.com/string',
+          timestamp: DateTime(2026),
+          statusCode: 200,
+          responseData: '{"result":10006}',
+        ),
+      );
+    await tester.pump();
+
+    expect(find.text('200[10006]'), findsOneWidget);
+    expect(find.text('200'), findsNWidgets(2));
+
+    final failureText = tester.widget<Text>(find.text('200[10006]'));
+    expect(failureText.style?.color, Colors.orange.shade700);
+    for (final successText in tester.widgetList<Text>(find.text('200'))) {
+      expect(successText.style?.color, Colors.green.shade600);
+    }
   });
 }

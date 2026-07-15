@@ -7,6 +7,8 @@
   dedicated viewer actions section.
 * Updated desktop log export to use the native save dialog on macOS, Windows,
   and Linux.
+* Added optional JSON business-code rules for application-level success and
+  warning states in the request list.
 
 ## 0.2.0
 

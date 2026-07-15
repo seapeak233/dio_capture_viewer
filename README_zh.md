@@ -48,6 +48,18 @@ final captureController = DioCaptureViewerController.init(
   showPanel: true,
   navigatorKey: navigatorKey,
   host: apiHost,
+  // 可选。规则只检查 JSON 对象的顶层字段。
+  // 命中失败规则时，列表显示为 HTTP状态码[业务码]。
+  businessCodeRules: const [
+    CaptureBusinessCodeRule(
+      field: 'result',
+      successCodes: <Object>{10000},
+    ),
+    CaptureBusinessCodeRule(
+      field: 'code',
+      successCodes: <Object>{200},
+    ),
+  ],
   onSettingsTap: (context, store) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -106,6 +118,8 @@ class App extends StatelessWidget {
 `toast` 是可选项。不传时，查看器不会内置显示 toast 或 snackbar。传入后，复制、复制 curl、清空、清除搜索和隐藏查看器等操作会调用它，并传入一段简短提示文案。
 
 `exportHandler` 是可选项。不传时，全屏查看器不会显示导出按钮。传入后，查看器会调用 `exportStart`，从当前缓存生成 JSON Lines 日志文件，然后通过 `exportEnd` 把 `CaptureExportFile` 返回给业务侧。本库负责整理数据；loading UI 和本地文件保存由你的应用负责。
+
+`businessCodeRules` 是可选项，默认保留一条 `code == 200` 规则，以兼容原有行为。规则只检查 JSON 对象的顶层字段；数字字符串和数字会按数值比较。响应同时命中多条规则时，只要有一条失败就优先显示失败。传入空列表可以关闭业务码检查。
 
 `CaptureStore` 暴露了一些设置能力，你可以放到自己的抓包设置页中：
 

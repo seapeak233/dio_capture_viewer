@@ -26,6 +26,10 @@ final captureController = DioCaptureViewerController.init(
   navigatorKey: navigatorKey,
   label: 'Example API',
   host: apiHost,
+  businessCodeRules: const <CaptureBusinessCodeRule>[
+    CaptureBusinessCodeRule(field: 'result', successCodes: <Object>{10000}),
+    CaptureBusinessCodeRule(field: 'code', successCodes: <Object>{200}),
+  ],
   onSettingsTap: (_, store) {
     navigatorKey.currentState?.push(
       MaterialPageRoute<void>(
@@ -382,10 +386,9 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                 ),
               ),
               _RequestButton(
-                label: 'Error',
-                onPressed: () => _runRequest(
-                  () => mockDio.get<dynamic>('/missing-endpoint'),
-                ),
+                label: 'Business error',
+                onPressed: () =>
+                    _runRequest(() => mockDio.get<dynamic>('/business-error')),
               ),
             ],
           ),
@@ -652,10 +655,20 @@ class _MockHttpAdapter implements HttpClientAdapter {
     final path = options.uri.path;
     if (path == '/posts/1') {
       return _jsonResponse(options, 200, {
-        'id': 1,
-        'title': 'Local mock post',
-        'body': 'This response is generated inside the example app.',
-        'userId': 1,
+        'result': 10000,
+        'data': {
+          'id': 1,
+          'title': 'Local mock post',
+          'body': 'This response is generated inside the example app.',
+          'userId': 1,
+        },
+      });
+    }
+
+    if (path == '/business-error') {
+      return _jsonResponse(options, 200, {
+        'result': 10006,
+        'message': 'Mock application-level failure',
       });
     }
 

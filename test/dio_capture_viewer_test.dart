@@ -387,6 +387,35 @@ void main() {
     expect(notifications, afterStart + 1);
   });
 
+  test('controller owns an immutable list of business code rules', () {
+    final rules = <CaptureBusinessCodeRule>[
+      const CaptureBusinessCodeRule(
+        field: 'result',
+        successCodes: <Object>{10000},
+      ),
+    ];
+    final controller = DioCaptureViewerController.init(
+      businessCodeRules: rules,
+    );
+    rules.clear();
+
+    expect(controller.businessCodeRules, hasLength(1));
+    expect(controller.businessCodeRules.single.field, 'result');
+    expect(
+      () => controller.businessCodeRules.add(
+        const CaptureBusinessCodeRule(
+          field: 'code',
+          successCodes: <Object>{200},
+        ),
+      ),
+      throwsUnsupportedError,
+    );
+
+    final defaultController = DioCaptureViewerController.init();
+    expect(defaultController.businessCodeRules.single.field, 'code');
+    expect(defaultController.businessCodeRules.single.successCodes, {200});
+  });
+
   test('cleanup preserves open streams and removes http entries first', () {
     final store = CaptureStore(enabled: true, maxCacheSize: 20);
     final sessions = <CaptureStreamSession>[];

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'capture_business_code_rule.dart';
 import 'capture_controller.dart';
 import 'curl_command_builder.dart';
 import 'capture_entry.dart';
@@ -63,6 +64,8 @@ class DioCaptureViewer extends StatelessWidget {
     final effectiveCloseTap = onCloseTap ?? controller?.onCloseTap;
     final effectiveToast = toast ?? controller?.toast;
     final effectiveExportHandler = exportHandler ?? controller?.exportHandler;
+    final effectiveBusinessCodeRules =
+        controller?.businessCodeRules ?? CaptureBusinessCodeRule.defaultRules;
     final effectiveConfirmClose =
         confirmClose ?? controller?.confirmClose ?? true;
 
@@ -85,6 +88,7 @@ class DioCaptureViewer extends StatelessWidget {
                   onSettingsTap: effectiveSettingsTap,
                   toast: effectiveToast,
                   exportHandler: effectiveExportHandler,
+                  businessCodeRules: effectiveBusinessCodeRules,
                   actionContext: actionContext,
                 )
               else
@@ -624,6 +628,7 @@ class _FullPanel extends StatelessWidget {
     required this.onSettingsTap,
     required this.toast,
     required this.exportHandler,
+    required this.businessCodeRules,
     required this.actionContext,
   });
 
@@ -634,6 +639,7 @@ class _FullPanel extends StatelessWidget {
   final CaptureViewerAction? onSettingsTap;
   final CaptureViewerToast? toast;
   final CaptureExportHandler? exportHandler;
+  final List<CaptureBusinessCodeRule> businessCodeRules;
   final BuildContext? actionContext;
 
   @override
@@ -693,7 +699,11 @@ class _FullPanel extends StatelessWidget {
                                     'dio-capture-request-list-pane',
                                   ),
                                   width: 360,
-                                  child: _EntryList(store: store, toast: toast),
+                                  child: _EntryList(
+                                    store: store,
+                                    toast: toast,
+                                    businessCodeRules: businessCodeRules,
+                                  ),
                                 ),
                                 VerticalDivider(
                                   width: 1,
@@ -706,6 +716,7 @@ class _FullPanel extends StatelessWidget {
                                   child: _EntryDetails(
                                     store: store,
                                     toast: toast,
+                                    businessCodeRules: businessCodeRules,
                                   ),
                                 ),
                               ],
@@ -715,7 +726,11 @@ class _FullPanel extends StatelessWidget {
                               children: [
                                 Expanded(
                                   flex: 2,
-                                  child: _EntryList(store: store, toast: toast),
+                                  child: _EntryList(
+                                    store: store,
+                                    toast: toast,
+                                    businessCodeRules: businessCodeRules,
+                                  ),
                                 ),
                                 Divider(height: 1, color: theme.borderSubtle),
                                 Expanded(
@@ -723,6 +738,7 @@ class _FullPanel extends StatelessWidget {
                                   child: _EntryDetails(
                                     store: store,
                                     toast: toast,
+                                    businessCodeRules: businessCodeRules,
                                   ),
                                 ),
                               ],
@@ -976,10 +992,15 @@ class _StatText extends StatelessWidget {
 }
 
 class _EntryList extends StatelessWidget {
-  const _EntryList({required this.store, required this.toast});
+  const _EntryList({
+    required this.store,
+    required this.toast,
+    required this.businessCodeRules,
+  });
 
   final CaptureStore store;
   final CaptureViewerToast? toast;
+  final List<CaptureBusinessCodeRule> businessCodeRules;
 
   @override
   Widget build(BuildContext context) {
@@ -1075,6 +1096,7 @@ class _EntryList extends StatelessWidget {
                     return _EntryTile(
                       entry: entry,
                       selected: store.selectedEntry?.id == entry.id,
+                      businessCodeRules: businessCodeRules,
                       onTap: () => store.selectEntry(entry),
                     );
                   },
@@ -1089,17 +1111,19 @@ class _EntryTile extends StatelessWidget {
   const _EntryTile({
     required this.entry,
     required this.selected,
+    required this.businessCodeRules,
     required this.onTap,
   });
 
   final CaptureEntry entry;
   final bool selected;
+  final List<CaptureBusinessCodeRule> businessCodeRules;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = CaptureTheme(context);
-    final statusColor = _statusColor(context, entry);
+    final statusColor = _statusColor(context, entry, businessCodeRules);
 
     return InkWell(
       onTap: onTap,
@@ -1147,7 +1171,7 @@ class _EntryTile extends StatelessWidget {
                 ],
                 const SizedBox(width: 8),
                 Text(
-                  _listStatusText(entry),
+                  _listStatusText(entry, businessCodeRules),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: statusColor,
                     fontWeight: FontWeight.w700,
@@ -1227,10 +1251,15 @@ class _MethodChip extends StatelessWidget {
 }
 
 class _EntryDetails extends StatelessWidget {
-  const _EntryDetails({required this.store, required this.toast});
+  const _EntryDetails({
+    required this.store,
+    required this.toast,
+    required this.businessCodeRules,
+  });
 
   final CaptureStore store;
   final CaptureViewerToast? toast;
+  final List<CaptureBusinessCodeRule> businessCodeRules;
 
   @override
   Widget build(BuildContext context) {
@@ -1269,7 +1298,11 @@ class _EntryDetails extends StatelessWidget {
         if (_isEntryInProgress(entry)) _InProgressBanner(entry: entry),
         Expanded(
           child: switch (store.currentTabIndex) {
-            0 => _OverviewTab(entry: entry, toast: toast),
+            0 => _OverviewTab(
+              entry: entry,
+              toast: toast,
+              businessCodeRules: businessCodeRules,
+            ),
             1 => _PayloadTab(
               toast: toast,
               sections: [
@@ -1386,10 +1419,15 @@ class _TabButton extends StatelessWidget {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.entry, required this.toast});
+  const _OverviewTab({
+    required this.entry,
+    required this.toast,
+    required this.businessCodeRules,
+  });
 
   final CaptureEntry entry;
   final CaptureViewerToast? toast;
+  final List<CaptureBusinessCodeRule> businessCodeRules;
 
   @override
   Widget build(BuildContext context) {
@@ -1409,7 +1447,10 @@ class _OverviewTab extends StatelessWidget {
                   label: 'Protocol',
                   value: _protocolText(entry.protocol),
                 ),
-                _InfoRow(label: 'Status', value: _statusText(entry)),
+                _InfoRow(
+                  label: 'Status',
+                  value: _statusText(entry, businessCodeRules),
+                ),
                 _InfoRow(label: 'Time', value: _dateTimeText(entry.timestamp)),
                 if (entry.closedAt != null)
                   _InfoRow(
@@ -2022,7 +2063,11 @@ bool _isEmptyPayload(Object? data) {
   return false;
 }
 
-Color _statusColor(BuildContext context, CaptureEntry entry) {
+Color _statusColor(
+  BuildContext context,
+  CaptureEntry entry,
+  List<CaptureBusinessCodeRule> businessCodeRules,
+) {
   final theme = CaptureTheme(context);
   if (entry.protocol != CaptureProtocol.http) {
     return switch (entry.state) {
@@ -2033,7 +2078,8 @@ Color _statusColor(BuildContext context, CaptureEntry entry) {
       CaptureState.pending => theme.warning,
     };
   }
-  if (_businessCode(entry) case final code? when code != 200) {
+  if (_businessStatus(entry, businessCodeRules) case final status?
+      when !status.isSuccess) {
     return theme.warning;
   }
   if (entry.isSuccess) {
@@ -2045,7 +2091,10 @@ Color _statusColor(BuildContext context, CaptureEntry entry) {
   return theme.warning;
 }
 
-String _statusText(CaptureEntry entry) {
+String _statusText(
+  CaptureEntry entry,
+  List<CaptureBusinessCodeRule> businessCodeRules,
+) {
   if (entry.protocol != CaptureProtocol.http) {
     return switch (entry.state) {
       CaptureState.open => 'Open',
@@ -2057,8 +2106,9 @@ String _statusText(CaptureEntry entry) {
   }
   if (entry.isSuccess || entry.statusCode != null) {
     final statusText = entry.statusCode.toString();
-    if (_businessCode(entry) case final code? when code != 200) {
-      return '$statusText [$code]';
+    if (_businessStatus(entry, businessCodeRules) case final status?
+        when !status.isSuccess) {
+      return '$statusText[${status.code}]';
     }
     return statusText;
   }
@@ -2068,8 +2118,11 @@ String _statusText(CaptureEntry entry) {
   return 'Pending';
 }
 
-String _listStatusText(CaptureEntry entry) {
-  final status = _statusText(entry);
+String _listStatusText(
+  CaptureEntry entry,
+  List<CaptureBusinessCodeRule> businessCodeRules,
+) {
+  final status = _statusText(entry, businessCodeRules);
   final isActiveStream =
       entry.protocol != CaptureProtocol.http && _isEntryInProgress(entry);
   return isActiveStream ? '$status...' : status;
@@ -2123,21 +2176,71 @@ String _messageTypeText(CaptureMessageType type) {
   };
 }
 
-int? _businessCode(CaptureEntry entry) {
+class _BusinessStatus {
+  const _BusinessStatus({required this.code, required this.isSuccess});
+
+  final Object code;
+  final bool isSuccess;
+}
+
+_BusinessStatus? _businessStatus(
+  CaptureEntry entry,
+  List<CaptureBusinessCodeRule> rules,
+) {
   final data = entry.responseData;
-  if (data is Map) {
-    final code = data['code'];
-    if (code is int) {
-      return code;
-    }
-    if (code is num) {
-      return code.toInt();
-    }
-    if (code is String) {
-      return int.tryParse(code);
-    }
+  if (data is! Map || rules.isEmpty || !_isJsonObject(data)) {
+    return null;
   }
-  return null;
+
+  _BusinessStatus? firstSuccess;
+  for (final rule in rules) {
+    if (!data.containsKey(rule.field)) {
+      continue;
+    }
+    final code = data[rule.field];
+    if (code is! String && code is! num && code is! bool) {
+      continue;
+    }
+    final status = _BusinessStatus(
+      code: code,
+      isSuccess: rule.successCodes.any(
+        (successCode) => _businessCodesEqual(code, successCode),
+      ),
+    );
+    if (!status.isSuccess) {
+      return status;
+    }
+    firstSuccess ??= status;
+  }
+  return firstSuccess;
+}
+
+bool _isJsonObject(Map<dynamic, dynamic> data) {
+  try {
+    jsonEncode(data);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool _businessCodesEqual(Object actual, Object expected) {
+  if (actual == expected) {
+    return true;
+  }
+  final actualNumber = actual is num
+      ? actual
+      : actual is String
+      ? num.tryParse(actual)
+      : null;
+  final expectedNumber = expected is num
+      ? expected
+      : expected is String
+      ? num.tryParse(expected)
+      : null;
+  return actualNumber != null &&
+      expectedNumber != null &&
+      actualNumber == expectedNumber;
 }
 
 String _urlPath(String url) {

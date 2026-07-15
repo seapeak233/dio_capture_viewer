@@ -56,6 +56,18 @@ final captureController = DioCaptureViewerController.init(
   showPanel: true,
   navigatorKey: navigatorKey,
   host: apiHost,
+  // Optional. Rules only inspect top-level fields in JSON response objects.
+  // A matching failure is shown as HTTP_STATUS[BUSINESS_CODE].
+  businessCodeRules: const [
+    CaptureBusinessCodeRule(
+      field: 'result',
+      successCodes: <Object>{10000},
+    ),
+    CaptureBusinessCodeRule(
+      field: 'code',
+      successCodes: <Object>{200},
+    ),
+  ],
   onSettingsTap: (context, store) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -122,6 +134,12 @@ does not show the Export button. When provided, the viewer calls `exportStart`,
 builds a JSON Lines log file from the current cache, then calls `exportEnd` with
 a `CaptureExportFile`. The package prepares the data; your app owns the loading
 UI and local file saving behavior.
+
+`businessCodeRules` is optional and defaults to a single `code == 200` rule to
+preserve the built-in behavior. Rules only inspect top-level fields in JSON
+response objects. Numeric strings and numbers compare by value. All matching
+rules are evaluated; a failure takes precedence over a success. Pass an empty
+list to disable business-code checks.
 
 `CaptureStore` exposes the settings you can place in your own capture settings
 page:

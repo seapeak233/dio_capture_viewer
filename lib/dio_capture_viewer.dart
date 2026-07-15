@@ -1,6 +1,7 @@
 library;
 
 export 'src/capture_entry.dart';
+export 'src/capture_business_code_rule.dart';
 export 'src/capture_controller.dart';
 export 'src/curl_command_builder.dart';
 export 'src/capture_interceptor.dart';

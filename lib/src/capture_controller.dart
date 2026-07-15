@@ -2,6 +2,7 @@ import 'dart:async' show FutureOr;
 
 import 'package:flutter/material.dart';
 
+import 'capture_business_code_rule.dart';
 import 'capture_interceptor.dart';
 import 'capture_log_exporter.dart';
 import 'capture_store.dart';
@@ -53,10 +54,15 @@ class DioCaptureViewerController {
     this.onCloseTap,
     this.toast,
     this.exportHandler,
+    List<CaptureBusinessCodeRule> businessCodeRules =
+        CaptureBusinessCodeRule.defaultRules,
     this.confirmClose = true,
   }) : assert(
          store == null || preferences == null,
          'Pass either store or preferences, not both.',
+       ),
+       businessCodeRules = List<CaptureBusinessCodeRule>.unmodifiable(
+         businessCodeRules,
        ),
        store =
            store ??
@@ -84,6 +90,8 @@ class DioCaptureViewerController {
     CaptureViewerCloseHandler? onCloseTap,
     CaptureViewerToast? toast,
     CaptureExportHandler? exportHandler,
+    List<CaptureBusinessCodeRule> businessCodeRules =
+        CaptureBusinessCodeRule.defaultRules,
     bool confirmClose = true,
   }) {
     return DioCaptureViewerController(
@@ -99,6 +107,7 @@ class DioCaptureViewerController {
       onCloseTap: onCloseTap,
       toast: toast,
       exportHandler: exportHandler,
+      businessCodeRules: businessCodeRules,
       confirmClose: confirmClose,
     );
   }
@@ -132,6 +141,12 @@ class DioCaptureViewerController {
 
   /// Optional export callback. When null, the viewer does not show Export.
   final CaptureExportHandler? exportHandler;
+
+  /// Ordered application-level status rules for JSON response objects.
+  ///
+  /// All matching rules are evaluated and a failure takes precedence over a
+  /// success. Pass an empty list to disable application-level status checks.
+  final List<CaptureBusinessCodeRule> businessCodeRules;
 
   /// Whether the built-in close confirmation should be used when
   /// [onCloseTap] is not provided.
