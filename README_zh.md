@@ -8,6 +8,30 @@
 
 它提供一个 Dio interceptor 和一个悬浮 Material UI 面板，可用于查看请求头、查询参数、请求体、响应内容、错误、状态码、请求耗时、SSE 事件和 WebSocket 消息。
 
+## 安装
+
+推荐直接执行：
+
+```bash
+flutter pub add dio_capture_viewer
+```
+
+也可以手动添加依赖，把每个 `x.x.x` 换成你要使用的版本：
+
+```yaml
+dependencies:
+  dio: ^x.x.x
+  dio_capture_viewer: ^x.x.x
+```
+
+然后执行：
+
+```bash
+flutter pub get
+```
+
+本包要求 Dart `>=3.11.5`、Flutter `>=3.29.0`，并使用 Dio `>=5.0.0 <6.0.0`。
+
 ## 功能特性
 
 - 可拖拽悬浮查看器，支持迷你、贴边和全屏模式。

@@ -10,6 +10,31 @@ It adds one Dio interceptor and a floating Material UI panel where you can
 inspect request headers, query parameters, request bodies, response payloads,
 errors, status codes, request durations, SSE events, and WebSocket messages.
 
+## Installation
+
+Add the package with the Flutter CLI:
+
+```bash
+flutter pub add dio_capture_viewer
+```
+
+Or add the dependencies manually. Replace each `x.x.x` with the version you
+want to use:
+
+```yaml
+dependencies:
+  dio: ^x.x.x
+  dio_capture_viewer: ^x.x.x
+```
+
+Then fetch packages:
+
+```bash
+flutter pub get
+```
+
+The package requires Dart `>=3.11.5`, Flutter `>=3.29.0`, and Dio `>=5.0.0 <6.0.0`.
+
 ## Features
 
 - Floating draggable viewer with compact, docked, and full-screen modes.
